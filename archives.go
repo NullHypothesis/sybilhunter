@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -53,6 +54,17 @@ func getArchiveParser(threshold int) func(fileName string) error {
 	var currCons = tor.NewConsensus()
 	var err error
 
+	directory, err := getOutputDir()
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	fd, err := ioutil.TempFile(directory, fmt.Sprintf("analysis_results_"))
+	log.Printf("Writing analysis results to \"%s\".\n", fd.Name())
+	if err != nil {
+		log.Panicln(err)
+	}
+
 	return func(fileName string) error {
 
 		currCons, err = tor.ParseConsensusFile(fileName)
@@ -63,10 +75,10 @@ func getArchiveParser(threshold int) func(fileName string) error {
 		// Determine and print the amount of previously unknown relay
 		// fingerprints.
 		if allCons.Length() != 0 {
-			fmt.Printf("%s, ", filepath.Base(fileName))
+			fmt.Fprintf(fd, "%s, ", filepath.Base(fileName))
 
 			unobserved := currCons.Subtract(allCons)
-			fmt.Printf("%d\n", unobserved.Length())
+			fmt.Fprintf(fd, "%d\n", unobserved.Length())
 
 			// Dump previously unobserved statuses to file for manual analysis.
 			if unobserved.Length() > threshold {
