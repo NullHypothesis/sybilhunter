@@ -1,3 +1,4 @@
+// archives analyses consensuses as archived by CollecTor.
 package main
 
 import (
