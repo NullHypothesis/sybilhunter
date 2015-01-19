@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -19,6 +21,22 @@ func collectFiles(fileNames *[]string) func(path string, info os.FileInfo, err e
 		}
 
 		return nil
+	}
+}
+
+// logConsensus writes the given consensus to a file which is put in the output
+// directory.
+func logConsensus(fileName string, consensus *tor.Consensus) {
+
+	// Convert the given (partial) consensus to a string blurb.
+	var buffer bytes.Buffer
+	for _, status := range consensus.RouterStatuses {
+		buffer.WriteString(fmt.Sprint(status))
+	}
+
+	err := writeStringToFile(filepath.Base(fileName), buffer.String())
+	if err != nil {
+		log.Panicln(err)
 	}
 }
 
@@ -48,6 +66,13 @@ func getArchiveParser(threshold int) func(fileName string) error {
 
 			unobserved := currCons.Subtract(allCons)
 			fmt.Printf("%d\n", unobserved.Length())
+
+			// Dump previously unobserved statuses to file for manual analysis.
+			if unobserved.Length() > threshold {
+				log.Printf("Observed change in \"%s\" exceeds threshold by %d.\n",
+					filepath.Base(fileName), unobserved.Length()-threshold)
+				logConsensus(filepath.Base(fileName), unobserved)
+			}
 		}
 
 		// Only keep track of fingerprints and discard the router statuses

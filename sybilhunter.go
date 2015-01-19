@@ -4,27 +4,36 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"path/filepath"
 )
 
 const (
-	version = "2015.01.a"
+	version    = "2015.01.a"
+	timeLayout = "2006-01-02_15:04:05"
 )
+
+// Files for manual analysis are written to this directory.
+var outputDir string
 
 func main() {
 
-	defaultArchive := "/path/to/files/"
 	var differenceThreshold int
 
 	// Handle command line arguments.
 	showVersion := flag.Bool("version", false, "Show version number and exit.")
-	archive := flag.String("archive", defaultArchive, "Analyse a directory containing archives Tor data formats.")
+	archive := flag.String("archive", "", "Analyse a directory containing archived Tor network statuses.")
 	flag.IntVar(&differenceThreshold, "threshold", 50, "Dump consensus when new fingerprints exceed given threshold.")
+	flag.StringVar(&outputDir, "output", "", "Directory where analysis results are written to.")
 	reverse := flag.Bool("reverse", false, "Parse given archive in reverse order.")
 
 	flag.Parse()
+
+	if (*archive == "") && !(*showVersion) {
+		log.Fatalln("No commands given.  Supported commands: -archive, -version.")
+	}
 
 	if *showVersion {
 		_, execName := path.Split(os.Args[0])
@@ -32,7 +41,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *archive != defaultArchive {
+	if *archive != "" {
 
 		// First, collect all file names in the given directory in lexical
 		// order.  We are then able to also walk these files in reverse lexical
