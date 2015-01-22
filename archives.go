@@ -32,8 +32,8 @@ func logConsensus(fileName string, consensus *tor.Consensus) {
 
 	// Convert the given (partial) consensus to a string blurb.
 	var buffer bytes.Buffer
-	for _, status := range consensus.RouterStatuses {
-		buffer.WriteString(fmt.Sprint(status))
+	for _, getStatus := range consensus.RouterStatuses {
+		buffer.WriteString(fmt.Sprint(getStatus()))
 	}
 
 	err := writeStringToFile(filepath.Base(fileName), buffer.String())
@@ -67,7 +67,7 @@ func getArchiveParser(threshold int) func(fileName string) error {
 
 	return func(fileName string) error {
 
-		currCons, err = tor.ParseConsensusFile(fileName)
+		currCons, err = tor.LazilyParseConsensusFile(fileName)
 		if err != nil {
 			return err
 		}
