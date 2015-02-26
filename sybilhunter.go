@@ -8,6 +8,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 )
 
 const (
@@ -25,20 +26,44 @@ func main() {
 	// Handle command line arguments.
 	showVersion := flag.Bool("version", false, "Show version number and exit.")
 	archive := flag.String("archive", "", "Analyse a directory containing archived Tor network statuses.")
+	fingerprints := flag.String("fingerprint", "", "Analyse relay fingerprints in the given file or directory.")
 	flag.IntVar(&differenceThreshold, "threshold", 50, "Dump consensus when new fingerprints exceed given threshold.")
 	flag.StringVar(&outputDir, "output", "", "Directory where analysis results are written to.")
 	reverse := flag.Bool("reverse", false, "Parse given archive in reverse order.")
 
 	flag.Parse()
 
-	if (*archive == "") && !(*showVersion) {
-		log.Fatalln("No commands given.  Supported commands: -archive, -version.")
+	if (*archive == "") && !(*showVersion) && (*fingerprints == "") {
+		log.Fatalln("No commands given.  Supported commands: -archive, -version, -fingerprint.")
 	}
 
 	if *showVersion {
 		_, execName := path.Split(os.Args[0])
 		fmt.Printf("%s v%s\n", execName, version)
 		os.Exit(0)
+	}
+
+	if *fingerprints != "" {
+		// Parse all given files and determine statistics.
+		filepath.Walk(*fingerprints, AnalyseFingerprints)
+		vs := ValueSorter{
+			keys: make([]string, 0),
+			vals: make([]int, 0),
+		}
+
+		// Use ValueSorter to sort by IP addresses with most unique fingerprints.
+		for ipAddr, fprList := range FprAnalysis {
+			vs.keys = append(vs.keys, ipAddr)
+			vs.vals = append(vs.vals, len(fprList))
+		}
+		sort.Sort(vs)
+
+		for i, val := range vs.keys {
+			fmt.Printf("%s (%d unique fingerprints)\n", val, vs.vals[i])
+			for fingerprint, count := range FprAnalysis[val] {
+				fmt.Printf("\t%s (seen %d times)\n", fingerprint, count)
+			}
+		}
 	}
 
 	if *archive != "" {
