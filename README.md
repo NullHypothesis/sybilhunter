@@ -5,9 +5,19 @@ Overview
 Examples
 --------
 To analyse consensuses as archived by
-[CollecTor](https://collector.torproject.org), run the following command.
+[CollecTor](https://collector.torproject.org), run:
 
     $ sybilhunter -archive /path/to/archived/consensuses/
+
+To see how many fingerprints were used by each relay IP address, run:
+
+    $ sybilhunter -fingerprint /path/to/archived/consensuses/
+
+Alternatives
+------------
+
+Check out [`doctor`](https://gitweb.torproject.org/doctor.git/)'s [sybil
+checker](https://gitweb.torproject.org/doctor.git/tree/sybil_checker.py) script.
 
 Contact
 -------
