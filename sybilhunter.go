@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
 )
 
 const (
@@ -44,26 +43,9 @@ func main() {
 	}
 
 	if *fingerprints != "" {
-		// Parse all given files and determine statistics.
-		filepath.Walk(*fingerprints, AnalyseFingerprints)
-		vs := ValueSorter{
-			keys: make([]string, 0),
-			vals: make([]int, 0),
-		}
+		AnalyseFingerprints(*fingerprints)
+	}
 
-		// Use ValueSorter to sort by IP addresses with most unique fingerprints.
-		for ipAddr, fprList := range FprAnalysis {
-			vs.keys = append(vs.keys, ipAddr)
-			vs.vals = append(vs.vals, len(fprList))
-		}
-		sort.Sort(vs)
-
-		for i, val := range vs.keys {
-			fmt.Printf("%s (%d unique fingerprints)\n", val, vs.vals[i])
-			for fingerprint, count := range FprAnalysis[val] {
-				fmt.Printf("\t%s (seen %d times)\n", fingerprint, count)
-			}
-		}
 	}
 
 	if *archive != "" {

@@ -4,7 +4,10 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"path/filepath"
+	"sort"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 )
@@ -58,9 +61,9 @@ func countFingerprints(fpr string, address string) {
 	}
 }
 
-// AnalyseFingerprints parses the given file and then determines fingerprint
-// statistics.  If something fails, an error is returned.
-func AnalyseFingerprints(path string, info os.FileInfo, err error) error {
+// walkFiles parses the given file and then determines fingerprint statistics.
+// If something fails, an error is returned.
+func walkFiles(path string, info os.FileInfo, err error) error {
 
 	if _, err = os.Stat(path); err != nil {
 		fmt.Errorf("File \"%s\" does not exist.", path)
@@ -71,6 +74,7 @@ func AnalyseFingerprints(path string, info os.FileInfo, err error) error {
 		return nil
 	}
 
+	log.Printf("Parsing file \"%s\".", path)
 	objects, err := tor.ParseUnknownFile(path)
 	if err != nil {
 		fmt.Println(err)
@@ -93,4 +97,32 @@ func AnalyseFingerprints(path string, info os.FileInfo, err error) error {
 	}
 
 	return nil
+}
+
+// AnalyseFingerprints determines and prints how many unique fingerprints were
+// used by all Tor relays in the given directory.  The directory can hold relay
+// descriptors or consensuses.
+func AnalyseFingerprints(path string) {
+
+	// Parse all given files and determine statistics.
+	filepath.Walk(path, walkFiles)
+	vs := ValueSorter{
+		keys: make([]string, 0),
+		vals: make([]int, 0),
+	}
+
+	// Use ValueSorter to sort by IP addresses with most unique fingerprints.
+	log.Println("Now sorting by IP addresses with most unique fingerprints.")
+	for ipAddr, fprList := range FprAnalysis {
+		vs.keys = append(vs.keys, ipAddr)
+		vs.vals = append(vs.vals, len(fprList))
+	}
+	sort.Sort(vs)
+
+	for i, val := range vs.keys {
+		fmt.Printf("%s (%d unique fingerprints)\n", val, vs.vals[i])
+		for fingerprint, count := range FprAnalysis[val] {
+			fmt.Printf("\t%s (seen %d times)\n", fingerprint, count)
+		}
+	}
 }
