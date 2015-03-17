@@ -25,21 +25,27 @@ func main() {
 	// Handle command line arguments.
 	showVersion := flag.Bool("version", false, "Show version number and exit.")
 	archive := flag.String("archive", "", "Analyse a directory containing archived Tor network statuses.")
+	similarity := flag.String("similarity", "", "Calculate pairwise similarities for all files in the given file or directory.")
 	fingerprints := flag.String("fingerprint", "", "Analyse relay fingerprints in the given file or directory.")
 	flag.IntVar(&differenceThreshold, "threshold", 50, "Dump consensus when new fingerprints exceed given threshold.")
 	flag.StringVar(&outputDir, "output", "", "Directory where analysis results are written to.")
 	reverse := flag.Bool("reverse", false, "Parse given archive in reverse order.")
+	cumulative := flag.Bool("cumulative", false, "Accumulate all files rather than process them independently.")
 
 	flag.Parse()
 
-	if (*archive == "") && !(*showVersion) && (*fingerprints == "") {
-		log.Fatalln("No commands given.  Supported commands: -archive, -version, -fingerprint.")
+	if (*archive == "") && !(*showVersion) && (*fingerprints == "") && (*similarity == "") {
+		log.Fatalln("No commands given.  Supported commands: -archive, -version, -fingerprint, -similarity.")
 	}
 
 	if *showVersion {
 		_, execName := path.Split(os.Args[0])
 		fmt.Printf("%s v%s\n", execName, version)
 		os.Exit(0)
+	}
+
+	if *similarity != "" {
+		AnalyseSimilarities(*similarity, *cumulative)
 	}
 
 	if *fingerprints != "" {

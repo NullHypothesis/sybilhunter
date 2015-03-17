@@ -49,3 +49,39 @@ func writeStringToFile(fileName string, content string) error {
 
 	return nil
 }
+
+// MaxUInt64 returns the larger of the two given integers.
+func MaxUInt64(a, b uint64) uint64 {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
+// MinUInt64 returns the smaller of the two given integers.
+func MinUInt64(a, b uint64) uint64 {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
+}
+
+// MaxUInt16 returns the larger of the two given integers.
+func MaxUInt16(a, b uint16) uint16 {
+	if a > b {
+		return a
+	} else {
+		return b
+	}
+}
+
+// MinUInt16 returns the smaller of the two given integers.
+func MinUInt16(a, b uint16) uint16 {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
+}
