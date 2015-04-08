@@ -18,6 +18,17 @@ const (
 // Files for manual analysis are written to this directory.
 var outputDir string
 
+// isAllEmpty returns true if all given strings are empty.
+func isAllEmpty(strings ...string) bool {
+
+	for _, s := range strings {
+		if s != "" {
+			return false
+		}
+	}
+	return true
+}
+
 func main() {
 
 	var differenceThreshold int
@@ -26,6 +37,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version number and exit.")
 	archive := flag.String("archive", "", "Analyse a directory containing archived Tor network statuses.")
 	similarity := flag.String("similarity", "", "Calculate pairwise similarities for all files in the given file or directory.")
+	printFiles := flag.String("print", "", "Print the content of all files in the given file or directory.")
 	fingerprints := flag.String("fingerprint", "", "Analyse relay fingerprints in the given file or directory.")
 	flag.IntVar(&differenceThreshold, "threshold", 50, "Dump consensus when new fingerprints exceed given threshold.")
 	flag.StringVar(&outputDir, "output", "", "Directory where analysis results are written to.")
@@ -34,8 +46,8 @@ func main() {
 
 	flag.Parse()
 
-	if (*archive == "") && !(*showVersion) && (*fingerprints == "") && (*similarity == "") {
-		log.Fatalln("No commands given.  Supported commands: -archive, -version, -fingerprint, -similarity.")
+	if isAllEmpty(*archive, *fingerprints, *similarity, *printFiles) && !(*showVersion) {
+		log.Fatalln("No commands given.  Supported commands: -archive, -fingerprint, -similarity, -print, -version")
 	}
 
 	if *showVersion {
@@ -52,6 +64,8 @@ func main() {
 		AnalyseFingerprints(*fingerprints)
 	}
 
+	if *printFiles != "" {
+		PrettyPrint(*printFiles)
 	}
 
 	if *archive != "" {
