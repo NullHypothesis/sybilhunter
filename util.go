@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"time"
+
+	tor "git.torproject.org/user/phw/zoossh.git"
 )
 
 // getOutputDir returns the directory to which files can be written to.  If it
@@ -84,4 +86,33 @@ func MinUInt16(a, b uint16) uint16 {
 	} else {
 		return b
 	}
+}
+
+// RouterFlagsToString converts a RouterFlags struct to a constant-size string
+// containing a series of bits.
+func RouterFlagsToString(flags *tor.RouterFlags) string {
+
+	// Convert a boolean value to 1 or 0.
+	b2i := func(flag bool) int {
+		if flag == true {
+			return 1
+		} else {
+			return 0
+		}
+	}
+
+	return fmt.Sprintf("%d%d%d%d%d%d%d%d%d%d%d%d%d",
+		b2i(flags.Authority),
+		b2i(flags.BadExit),
+		b2i(flags.Exit),
+		b2i(flags.Fast),
+		b2i(flags.Guard),
+		b2i(flags.HSDir),
+		b2i(flags.Named),
+		b2i(flags.Stable),
+		b2i(flags.Running),
+		b2i(flags.Unnamed),
+		b2i(flags.Valid),
+		b2i(flags.V2Dir),
+		b2i(flags.Authority))
 }

@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"path"
-	"path/filepath"
 )
 
 const (
@@ -18,37 +17,23 @@ const (
 // Files for manual analysis are written to this directory.
 var outputDir string
 
-// isAllEmpty returns true if all given strings are empty.
-func isAllEmpty(strings ...string) bool {
-
-	for _, s := range strings {
-		if s != "" {
-			return false
-		}
-	}
-	return true
-}
-
 func main() {
 
 	var differenceThreshold int
 
 	// Handle command line arguments.
 	showVersion := flag.Bool("version", false, "Show version number and exit.")
-	archive := flag.String("archive", "", "Analyse a directory containing archived Tor network statuses.")
-	similarity := flag.String("similarity", "", "Calculate pairwise similarities for all files in the given file or directory.")
-	printFiles := flag.String("print", "", "Print the content of all files in the given file or directory.")
-	fingerprints := flag.String("fingerprint", "", "Analyse relay fingerprints in the given file or directory.")
+	printFiles := flag.Bool("print", false, "Print the content of all files in the given file or directory.")
+	fingerprints := flag.Bool("fingerprint", false, "Analyse relay fingerprints in the given file or directory.")
+	similarity := flag.Bool("similarity", false, "Calculate pairwise similarities for all files in the given file or directory.")
+	cumulative := flag.Bool("cumulative", false, "Accumulate all files rather than process them independently.")
+	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
+	data := flag.String("data", "", "File or directory to analyse.  It must contain network statuses or relay descriptors.")
+	rootrelay := flag.String("rootrelay", "", "Relay that's used for nearest neighbour search.")
 	flag.IntVar(&differenceThreshold, "threshold", 50, "Dump consensus when new fingerprints exceed given threshold.")
 	flag.StringVar(&outputDir, "output", "", "Directory where analysis results are written to.")
-	reverse := flag.Bool("reverse", false, "Parse given archive in reverse order.")
-	cumulative := flag.Bool("cumulative", false, "Accumulate all files rather than process them independently.")
 
 	flag.Parse()
-
-	if isAllEmpty(*archive, *fingerprints, *similarity, *printFiles) && !(*showVersion) {
-		log.Fatalln("No commands given.  Supported commands: -archive, -fingerprint, -similarity, -print, -version")
-	}
 
 	if *showVersion {
 		_, execName := path.Split(os.Args[0])
@@ -56,36 +41,32 @@ func main() {
 		os.Exit(0)
 	}
 
-	if *similarity != "" {
-		AnalyseSimilarities(*similarity, *cumulative)
+	if *data == "" {
+		log.Fatalln("No file or directory given.  Please use the -data switch.")
 	}
 
-	if *fingerprints != "" {
-		AnalyseFingerprints(*fingerprints)
+	if *similarity {
+		AnalyseSimilarities(*data, *cumulative)
+		return
 	}
 
-	if *printFiles != "" {
-		PrettyPrint(*printFiles)
+	if *fingerprints {
+		AnalyseFingerprints(*data)
+		return
 	}
 
-	if *archive != "" {
+	if *printFiles {
+		PrettyPrint(*data)
+		return
+	}
 
-		// First, collect all file names in the given directory in lexical
-		// order.  We are then able to also walk these files in reverse lexical
-		// order which is not supported by Go's Walk API.
-		var fileNames []string
-		filepath.Walk(*archive, collectFiles(&fileNames))
-		fileNamesLen := len(fileNames)
-
-		archiveParser := getArchiveParser(differenceThreshold)
-		if *reverse {
-			for i := fileNamesLen - 1; i >= 0; i-- {
-				archiveParser(fileNames[i])
-			}
-		} else {
-			for i := 0; i < fileNamesLen; i++ {
-				archiveParser(fileNames[i])
-			}
+	if *neighbours != 0 {
+		if *rootrelay == "" {
+			log.Fatalln("No root relay given.  Please use the -rootrelay switch.")
 		}
+		FindNearestNeighbours(*data, *rootrelay, *neighbours)
+		return
 	}
+
+	log.Fatalln("No command given.  Please use -print, -fingerprint, -similarity, or -neighbours.")
 }

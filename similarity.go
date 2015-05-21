@@ -225,3 +225,16 @@ func AnalyseSimilarities(path string, cumulative bool) {
 		filepath.Walk(path, processDescriptors)
 	}
 }
+
+// FindNearestNeighbours attempts to find the nearest neighbours for the given
+// relay.
+func FindNearestNeighbours(path string, rootrelay string, neighbours int) {
+
+	objects, err := tor.ParseUnknownFile(path)
+	if err != nil {
+		log.Fatalln(err)
+		return
+	}
+
+	VantagePointTreeSearch(objects, rootrelay, neighbours)
+}
