@@ -142,7 +142,7 @@ func PairwiseSimilarities(descs *tor.RouterDescriptors) {
 // extractObjects attempts to parse the given, unknown file and returns a
 // collection of objects.  It's up to the caller to convert the returned
 // interface type to something more useful.
-func extractObjects(path string, info os.FileInfo) (tor.ObjectCollector, error) {
+func extractObjects(path string, info os.FileInfo) (tor.ObjectSet, error) {
 
 	if _, err := os.Stat(path); err != nil {
 		return nil, fmt.Errorf("File \"%s\" does not exist.", path)
