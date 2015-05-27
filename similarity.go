@@ -29,8 +29,8 @@ func hasDefaultExitPolicy(desc *tor.RouterDescriptor) bool {
 // Represents our similarity vector, i.e., the difference between two router
 // descriptors.
 type DescriptorSimilarity struct {
-	Fingerprint1 string
-	Fingerprint2 string
+	desc1 *tor.RouterDescriptor
+	desc2 *tor.RouterDescriptor
 
 	UptimeDiff      uint64
 	BandwidthDiff   uint64
@@ -38,30 +38,88 @@ type DescriptorSimilarity struct {
 	SharedFprPrefix uint32
 	LevenshteinDist int
 
-	SameFamily  bool
-	SameAddress bool
-	SameContact bool
-	SameVersion bool
-	HaveDirPort bool
-	SamePolicy  bool
+	SameFamily   bool
+	SameAddress  bool
+	SameContact  bool
+	SameVersion  bool
+	HaveDirPort  bool
+	SamePolicy   bool
+	SamePlatform bool
 }
 
-// String implements the Stringer interface for pretty printing.
+// String implements the Stringer interface for pretty printing.  The output is
+// meant to be human-readable and easy to understand.
 func (s DescriptorSimilarity) String() string {
 
-	return fmt.Sprintf("%s, %s, %t, %t, %t, %t, %t, %d, %d, %d, %d, %d",
-		s.Fingerprint1,
-		s.Fingerprint2,
-		s.SameContact,
-		s.SameFamily,
-		s.SameAddress,
-		s.SameVersion,
-		s.SamePolicy,
-		s.UptimeDiff,
-		s.ORPortDiff,
-		s.BandwidthDiff,
-		s.SharedFprPrefix,
-		s.LevenshteinDist)
+	var contact, version, bandwidth, sharedFpr, family, policy, uptime, orport, platform string
+	var similarities int
+
+	if s.SameFamily {
+		family = ", but are in same family"
+	}
+
+	if s.SamePlatform {
+		similarities++
+		platform = fmt.Sprintf("\tIdentical platform: %s\n", s.desc1.OperatingSystem)
+	}
+
+	if s.SameContact {
+		similarities++
+		contact = fmt.Sprintf("\tIdentical, non-empty contact: %s\n", s.desc1.Contact)
+	}
+
+	if s.SameVersion {
+		similarities++
+		version = fmt.Sprintf("\tIdentical version: %s\n", s.desc1.TorVersion)
+	}
+
+	if s.BandwidthDiff == 0 {
+		similarities++
+		// The default bandwidth rate is 1 GiB/s, i.e., 1024^3 Bps.
+		if s.desc1.BandwidthAvg == 1073741824 {
+			bandwidth = fmt.Sprintln("\tUnset bandwidth: default of 1 GiB/s")
+		} else {
+			bandwidth = fmt.Sprintf("\tIdentical bandwidth: %d\n", s.desc1.BandwidthAvg)
+		}
+	}
+
+	if s.SharedFprPrefix >= 2 {
+		similarities++
+		sharedFpr = fmt.Sprintf("\tFirst %d hex digits of fingerprint identical: %s\n",
+			s.SharedFprPrefix, s.desc1.Fingerprint[:s.SharedFprPrefix])
+	}
+
+	if s.SamePolicy {
+		similarities++
+		policy = fmt.Sprintf("\tIdentical exit policy: %s\n", s.desc1.RawReject)
+	}
+
+	if s.UptimeDiff < (60 * 60 * 3) {
+		similarities++
+		uptime = fmt.Sprintf("\tUptime diff < three hours: %d\n", s.UptimeDiff)
+	}
+
+	if (s.ORPortDiff < 10) && (s.desc1.ORPort != 9001) {
+		similarities++
+		orport = fmt.Sprintf("\tSimilar ORPort: desc1=%d, desc2=%d\n",
+			s.desc1.ORPort, s.desc2.ORPort)
+	}
+
+	return fmt.Sprintf("Descriptors have %d similarities%s:\n"+
+		"<https://atlas.torproject.org/#details/%s> (%s)\n"+
+		"<https://atlas.torproject.org/#details/%s> (%s)\n"+
+		"%s%s%s%s%s%s%s%s",
+		similarities, family,
+		s.desc1.Fingerprint, s.desc1.Nickname,
+		s.desc2.Fingerprint, s.desc2.Nickname,
+		sharedFpr,
+		contact,
+		version,
+		policy,
+		uptime,
+		orport,
+		bandwidth,
+		platform)
 }
 
 // CalcDescSimilarity determines the similarity between the two given relay
@@ -70,8 +128,8 @@ func CalcDescSimilarity(desc1, desc2 *tor.RouterDescriptor) *DescriptorSimilarit
 
 	similarity := new(DescriptorSimilarity)
 
-	similarity.Fingerprint1 = desc1.Fingerprint
-	similarity.Fingerprint2 = desc2.Fingerprint
+	similarity.desc1 = desc1
+	similarity.desc2 = desc2
 
 	similarity.UptimeDiff = MaxUInt64(desc1.Uptime, desc2.Uptime) -
 		MinUInt64(desc1.Uptime, desc2.Uptime)
@@ -96,10 +154,11 @@ func CalcDescSimilarity(desc1, desc2 *tor.RouterDescriptor) *DescriptorSimilarit
 	similarity.LevenshteinDist = levenshtein.Distance(desc1.Nickname, desc2.Nickname)
 
 	similarity.SameFamily = desc1.HasFamily(desc2.Fingerprint) && desc2.HasFamily(desc1.Fingerprint)
-	similarity.SameAddress = (desc1.Address.String() == desc2.Address.String())
+	similarity.SameAddress = desc1.Address.Equal(desc2.Address)
 	similarity.SameContact = (desc1.Contact == desc2.Contact) && desc1.Contact != ""
 	similarity.SameVersion = (desc1.TorVersion == desc2.TorVersion)
 	similarity.HaveDirPort = (desc1.DirPort != 0) && (desc2.DirPort != 0)
+	similarity.SamePlatform = desc1.OperatingSystem == desc2.OperatingSystem
 
 	// We don't care about the default or the universal reject policy.
 	if !hasDefaultExitPolicy(desc1) && strings.TrimSpace(desc1.RawReject) != "*:*" {
@@ -124,7 +183,10 @@ func PairwiseSimilarities(descs *tor.RouterDescriptors) {
 		i++
 	}
 
+	log.Printf("Now processing %d router descriptors.\n", size)
+
 	// Compute pairwise relay similarities.  This takes O(n^2/2) operations.
+	count := 0
 	for i := 0; i < size; i++ {
 
 		fpr1 := fprs[i]
@@ -135,8 +197,12 @@ func PairwiseSimilarities(descs *tor.RouterDescriptors) {
 			desc2, _ := descs.Get(fpr2)
 
 			fmt.Println(CalcDescSimilarity(desc1, desc2))
+
+			count++
 		}
 	}
+
+	log.Printf("Computed %d pairwise similarities.", count)
 }
 
 // extractObjects attempts to parse the given, unknown file and returns a
