@@ -21,5 +21,8 @@ checker](https://gitweb.torproject.org/doctor.git/tree/sybil_checker.py) script.
 
 Contact
 -------
+For bugs and requests, please file a ticket in [The Tor Project's bug
+tracker](https://bugs.torproject.org).  You can also contact me privately:
+
 Contact: Philipp Winter <phw@nymity.ch>  
 OpenPGP fingerprint: `B369 E7A2 18FE CEAD EB96  8C73 CF70 89E3 D7FD C0D0`
