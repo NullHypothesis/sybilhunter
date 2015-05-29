@@ -17,7 +17,9 @@ Alternatives
 ------------
 
 Check out [`doctor`](https://gitweb.torproject.org/doctor.git/)'s [sybil
-checker](https://gitweb.torproject.org/doctor.git/tree/sybil_checker.py) script.
+checker](https://gitweb.torproject.org/doctor.git/tree/sybil_checker.py)
+script, and [`hstools`](https://github.com/FiloSottile/hstools) can be useful
+for finding anomalies in hidden service directories.
 
 Contact
 -------
