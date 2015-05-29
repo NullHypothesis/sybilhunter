@@ -1,17 +1,26 @@
 Overview
 --------
-`sybilhunter` hunts for sybils in the Tor anonymity network.
+`sybilhunter` implements a number of analysis techniques to find Sybils and
+other anomalies in [archived Tor network
+data](https://collector.torproject.org).  For example, `sybilhunter` can tell
+you when an unusally high amount of relays joined or left the Tor network,
+which Tor relays changed their identity keys a lot, and which Tor relays appear
+to be very similar to each other.  Ideally, `sybilhunter` should become a Swiss
+Army knife for analysing anomalies in network consensuses and relay
+descriptors.
 
 Examples
 --------
-To analyse consensuses as archived by
-[CollecTor](https://collector.torproject.org), run:
+`sybilhunter` takes as input data obtained from
+[CollecTor](https://collector.torproject.org).  Let's start by pretty-printing
+a file containing a network consensus or relay descriptors:
 
-    $ sybilhunter -archive /path/to/archived/consensuses/
+    $ sybilhunter -data /path/to/file -print
 
-To see how many fingerprints were used by each relay IP address, run:
+Next, here's how you can analyse how often relays changed their fingerprint in
+a set of consensus documents:
 
-    $ sybilhunter -fingerprint /path/to/archived/consensuses/
+    $ sybilhunter -data /path/to//consensuses/ -fingerprints
 
 Alternatives
 ------------
