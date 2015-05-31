@@ -26,8 +26,13 @@ func hasDefaultExitPolicy(desc *tor.RouterDescriptor) bool {
 	return strings.TrimSpace(desc.RawReject) == defaultReject
 }
 
-// Represents our similarity vector, i.e., the difference between two router
-// descriptors.
+// SybilCluster represents a cluster of potential Sybils.
+type SybilCluster struct {
+	SybilPairs []*DescriptorSimilarity
+}
+
+// DescriptorSimilarity is a heterogeneous vector representing the similarity
+// between two router descriptors.
 type DescriptorSimilarity struct {
 	desc1 *tor.RouterDescriptor
 	desc2 *tor.RouterDescriptor
@@ -37,6 +42,7 @@ type DescriptorSimilarity struct {
 	ORPortDiff      uint16
 	SharedFprPrefix uint32
 	LevenshteinDist int
+	SimilarityScore int
 
 	SameFamily   bool
 	SameAddress  bool
@@ -45,73 +51,72 @@ type DescriptorSimilarity struct {
 	HaveDirPort  bool
 	SamePolicy   bool
 	SamePlatform bool
+
+	StringSummary string
 }
 
-// String implements the Stringer interface for pretty printing.  The output is
-// meant to be human-readable and easy to understand.
-func (s DescriptorSimilarity) String() string {
+// genStringSimilarity generates and stores a human-readable string
+// representation of the similarity between two relay descriptors.
+func (s *DescriptorSimilarity) genStringSimilarity() {
 
 	var contact, version, bandwidth, sharedFpr, family, policy, uptime, orport, platform string
 	var similarities int
 
 	if s.SameFamily {
-		family = ", but are in same family"
+		family = ", but same family"
 	}
 
 	if s.SamePlatform {
 		similarities++
-		platform = fmt.Sprintf("\tIdentical platform: %s\n", s.desc1.OperatingSystem)
+		platform = fmt.Sprintf("Same platform: %s\n", s.desc1.OperatingSystem)
 	}
 
 	if s.SameContact {
 		similarities++
-		contact = fmt.Sprintf("\tIdentical, non-empty contact: %s\n", s.desc1.Contact)
+		contact = fmt.Sprintf("Same contact: %s\n", s.desc1.Contact)
 	}
 
 	if s.SameVersion {
 		similarities++
-		version = fmt.Sprintf("\tIdentical version: %s\n", s.desc1.TorVersion)
+		version = fmt.Sprintf("Same version: %s\n", s.desc1.TorVersion)
 	}
 
 	if s.BandwidthDiff == 0 {
 		similarities++
 		// The default bandwidth rate is 1 GiB/s, i.e., 1024^3 Bps.
 		if s.desc1.BandwidthAvg == 1073741824 {
-			bandwidth = fmt.Sprintln("\tUnset bandwidth: default of 1 GiB/s")
+			bandwidth = fmt.Sprintln("Default 1 GiB/s bandwidth")
 		} else {
-			bandwidth = fmt.Sprintf("\tIdentical bandwidth: %d\n", s.desc1.BandwidthAvg)
+			bandwidth = fmt.Sprintf("Same bandwidth: %d\n", s.desc1.BandwidthAvg)
 		}
 	}
 
 	if s.SharedFprPrefix >= 2 {
 		similarities++
-		sharedFpr = fmt.Sprintf("\tFirst %d hex digits of fingerprint identical: %s\n",
+		sharedFpr = fmt.Sprintf("First %d hex digits of fingerprint: %s\n",
 			s.SharedFprPrefix, s.desc1.Fingerprint[:s.SharedFprPrefix])
 	}
 
 	if s.SamePolicy {
 		similarities++
-		policy = fmt.Sprintf("\tIdentical exit policy: %s\n", s.desc1.RawReject)
+		policy = fmt.Sprintf("Same exit policy: %s\n", s.desc1.RawReject)
 	}
 
 	if s.UptimeDiff < (60 * 60 * 3) {
 		similarities++
-		uptime = fmt.Sprintf("\tUptime diff < three hours: %d\n", s.UptimeDiff)
+		uptime = fmt.Sprintf("Uptime diff: %d sec\n", s.UptimeDiff)
 	}
 
 	if (s.ORPortDiff < 10) && (s.desc1.ORPort != 9001) {
 		similarities++
-		orport = fmt.Sprintf("\tSimilar ORPort: desc1=%d, desc2=%d\n",
+		orport = fmt.Sprintf("ORPort similar: desc1=%d, desc2=%d\n",
 			s.desc1.ORPort, s.desc2.ORPort)
 	}
 
-	return fmt.Sprintf("Descriptors have %d similarities%s:\n"+
-		"<https://atlas.torproject.org/#details/%s> (%s)\n"+
-		"<https://atlas.torproject.org/#details/%s> (%s)\n"+
+	s.SimilarityScore = similarities
+	s.StringSummary = fmt.Sprintf("%d similarities%s:\n"+
 		"%s%s%s%s%s%s%s%s",
 		similarities, family,
-		s.desc1.Fingerprint, s.desc1.Nickname,
-		s.desc2.Fingerprint, s.desc2.Nickname,
 		sharedFpr,
 		contact,
 		version,
@@ -120,6 +125,13 @@ func (s DescriptorSimilarity) String() string {
 		orport,
 		bandwidth,
 		platform)
+}
+
+// String implements the Stringer interface for pretty printing.  The output is
+// meant to be human-readable and easy to grep(1).
+func (s *DescriptorSimilarity) String() string {
+
+	return s.StringSummary
 }
 
 // CalcDescSimilarity determines the similarity between the two given relay
@@ -143,6 +155,7 @@ func CalcDescSimilarity(desc1, desc2 *tor.RouterDescriptor) *DescriptorSimilarit
 	// of five:
 	//   2C23B 21BEA DFB95 6247F  6DA97 36A61 EDCE9 48413
 	//   2C23B 41049 6F573 A616B  FF37B C12A2 B39F2 DBE5E
+	//   ^^^^^
 	similarity.SharedFprPrefix = 0
 	for i := 0; i < 40; i++ {
 		if desc1.Fingerprint[i] != desc2.Fingerprint[i] {
@@ -151,6 +164,8 @@ func CalcDescSimilarity(desc1, desc2 *tor.RouterDescriptor) *DescriptorSimilarit
 		similarity.SharedFprPrefix++
 	}
 
+	// The Levenshtein distance gives us an approximation of how similar two
+	// nicknames are.
 	similarity.LevenshteinDist = levenshtein.Distance(desc1.Nickname, desc2.Nickname)
 
 	similarity.SameFamily = desc1.HasFamily(desc2.Fingerprint) && desc2.HasFamily(desc1.Fingerprint)
@@ -164,6 +179,8 @@ func CalcDescSimilarity(desc1, desc2 *tor.RouterDescriptor) *DescriptorSimilarit
 	if !hasDefaultExitPolicy(desc1) && strings.TrimSpace(desc1.RawReject) != "*:*" {
 		similarity.SamePolicy = desc1.RawReject == desc2.RawReject
 	}
+
+	similarity.genStringSimilarity()
 
 	return similarity
 }
@@ -186,24 +203,45 @@ func genSimilarityMatrix(descs *tor.RouterDescriptors, threshold int, visualise 
 
 	log.Printf("Now processing %d router descriptors.\n", size)
 
-	// Compute pairwise relay similarities.  This takes O(n^2/2) operations.
+	cluster := SybilCluster{}
+
+	// Compute similarity matrix.
 	count := 0
 	for i := 0; i < size; i++ {
 
 		fpr1 := fprs[i]
 		for j := i + 1; j < size; j++ {
 
+			count++
 			fpr2 := fprs[j]
 			desc1, _ := descs.Get(fpr1)
 			desc2, _ := descs.Get(fpr2)
 
-			fmt.Println(CalcDescSimilarity(desc1, desc2))
+			similarity := CalcDescSimilarity(desc1, desc2)
+			if similarity.SimilarityScore < threshold {
+				continue
+			}
 
-			count++
+			cluster.SybilPairs = append(cluster.SybilPairs, similarity)
+
+			// Write similarities between two descriptors as human-readable,
+			// easy-to-grep output to stdout.
+			if !visualise {
+				fmt.Printf("<https://atlas.torproject.org/#details/%s> (%s)\n",
+					similarity.desc1.Fingerprint, similarity.desc1.Nickname)
+				fmt.Printf("<https://atlas.torproject.org/#details/%s> (%s)\n",
+					similarity.desc2.Fingerprint, similarity.desc2.Nickname)
+				fmt.Println(similarity)
+			}
 		}
 	}
 
-	log.Printf("Computed %d pairwise similarities.", count)
+	log.Printf("Computed %d pairwise similarities, %d are part of output.\n",
+		count, len(cluster.SybilPairs))
+
+	if visualise {
+		GenerateDOTGraph(&cluster)
+	}
 }
 
 // extractObjects attempts to parse the given, unknown file and returns a
