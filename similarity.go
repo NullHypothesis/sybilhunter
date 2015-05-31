@@ -189,7 +189,7 @@ func CalcDescSimilarity(desc1, desc2 *tor.RouterDescriptor) *DescriptorSimilarit
 // descriptors.  If "visualise" is set to false, all (n^2)/2 similarities are
 // written to stdout in human-readable output.  If "visualise" is true, the
 // output is Dot code, that can be turned into a diagram for visual inspection.
-func genSimilarityMatrix(descs *tor.RouterDescriptors, threshold int, visualise bool) {
+func genSimilarityMatrix(descs *tor.RouterDescriptors, params *CmdLineParams) {
 
 	// Turn the map keys (i.e., the relays' fingerprints) into a list.
 	size := len(descs.RouterDescriptors)
@@ -218,7 +218,11 @@ func genSimilarityMatrix(descs *tor.RouterDescriptors, threshold int, visualise 
 			desc2, _ := descs.Get(fpr2)
 
 			similarity := CalcDescSimilarity(desc1, desc2)
-			if similarity.SimilarityScore < threshold {
+			if similarity.SimilarityScore < params.Threshold {
+				continue
+			}
+
+			if similarity.SameFamily && params.NoFamily {
 				continue
 			}
 
@@ -226,7 +230,7 @@ func genSimilarityMatrix(descs *tor.RouterDescriptors, threshold int, visualise 
 
 			// Write similarities between two descriptors as human-readable,
 			// easy-to-grep output to stdout.
-			if !visualise {
+			if !params.Visualise {
 				fmt.Printf("<https://atlas.torproject.org/#details/%s> (%s)\n",
 					similarity.desc1.Fingerprint, similarity.desc1.Nickname)
 				fmt.Printf("<https://atlas.torproject.org/#details/%s> (%s)\n",
@@ -239,7 +243,7 @@ func genSimilarityMatrix(descs *tor.RouterDescriptors, threshold int, visualise 
 	log.Printf("Computed %d pairwise similarities, %d are part of output.\n",
 		count, len(cluster.SybilPairs))
 
-	if visualise {
+	if params.Visualise {
 		GenerateDOTGraph(&cluster)
 	}
 }
@@ -304,7 +308,7 @@ func SimilarityMatrix(params *CmdLineParams) {
 		log.Println("Processing files cumulatively.")
 		descs := tor.NewRouterDescriptors()
 		filepath.Walk(params.InputData, accumulateDescriptors(descs))
-		genSimilarityMatrix(descs, params.Threshold, params.Visualise)
+		genSimilarityMatrix(descs, params)
 	} else {
 		log.Println("Processing files independently.")
 
@@ -317,7 +321,7 @@ func SimilarityMatrix(params *CmdLineParams) {
 
 			switch objs := objects.(type) {
 			case *tor.RouterDescriptors:
-				genSimilarityMatrix(objs, params.Threshold, params.Visualise)
+				genSimilarityMatrix(objs, params)
 			default:
 				log.Printf("File format of \"%s\" not yet supported.\n", path)
 			}

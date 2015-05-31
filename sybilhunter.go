@@ -23,6 +23,7 @@ type CmdLineParams struct {
 	Neighbours     int
 	Visualise      bool
 	Cumulative     bool
+	NoFamily       bool
 	InputData      string
 	OutputDir      string
 	ReferenceRelay string
@@ -39,6 +40,7 @@ func main() {
 	matrix := flag.Bool("matrix", false, "Calculate O(n^2) similarity matrix for all files in the given file or directory.")
 	cumulative := flag.Bool("cumulative", false, "Accumulate all files rather than process them independently.")
 	visualise := flag.Bool("visualise", false, "Write Dot code to stdout, that can then be turned into a diagram using GraphViz.")
+	nofamily := flag.Bool("nofamily", true, "Don't interpret MyFamily relationships as Sybils.")
 
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
 
@@ -58,7 +60,7 @@ func main() {
 
 	// Store and pass command line arguments to analysis methods.
 	params := CmdLineParams{threshold, *neighbours, *visualise, *cumulative,
-		*data, outputDir, *referenceRelay}
+		*nofamily, *data, outputDir, *referenceRelay}
 
 	if *data == "" {
 		log.Fatalln("No file or directory given.  Please use the -data switch.")
