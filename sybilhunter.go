@@ -66,7 +66,7 @@ func main() {
 
 	if *matrix {
 		if threshold == -1 {
-			log.Println("You might want to use -threshold to only consider similarities above the given threshold.")
+			log.Println("You might want to use -threshold to only consider similarities above or equal to the given threshold.")
 		}
 		log.Println("Generating similarity matrix.")
 		SimilarityMatrix(&params)
