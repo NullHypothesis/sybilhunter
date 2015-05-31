@@ -44,7 +44,7 @@ func printFiles(path string, info os.FileInfo, err error) error {
 
 // PrettyPrint calls printFiles for all files in the provided file or
 // directory.
-func PrettyPrint(path string) {
+func PrettyPrint(params *CmdLineParams) {
 
-	filepath.Walk(path, printFiles)
+	filepath.Walk(params.InputData, printFiles)
 }

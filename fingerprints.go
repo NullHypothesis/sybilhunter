@@ -102,10 +102,10 @@ func walkFiles(path string, info os.FileInfo, err error) error {
 // AnalyseFingerprints determines and prints how many unique fingerprints were
 // used by all Tor relays in the given directory.  The directory can hold relay
 // descriptors or consensuses.
-func AnalyseFingerprints(path string) {
+func AnalyseFingerprints(params *CmdLineParams) {
 
 	// Parse all given files and determine statistics.
-	filepath.Walk(path, walkFiles)
+	filepath.Walk(params.InputData, walkFiles)
 	vs := ValueSorter{
 		keys: make([]string, 0),
 		vals: make([]int, 0),

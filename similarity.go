@@ -168,10 +168,11 @@ func CalcDescSimilarity(desc1, desc2 *tor.RouterDescriptor) *DescriptorSimilarit
 	return similarity
 }
 
-// PairwiseSimilarities computes pairwise similarities between the given relay
-// descriptors.  All similarities, approximately n^2/2, are written to stdout
-// as comma-separated values.
-func PairwiseSimilarities(descs *tor.RouterDescriptors) {
+// genSimilarityMatrix computes pairwise similarities for all given relay
+// descriptors.  If "visualise" is set to false, all (n^2)/2 similarities are
+// written to stdout in human-readable output.  If "visualise" is true, the
+// output is Dot code, that can be turned into a diagram for visual inspection.
+func genSimilarityMatrix(descs *tor.RouterDescriptors, threshold int, visualise bool) {
 
 	// Turn the map keys (i.e., the relays' fingerprints) into a list.
 	size := len(descs.RouterDescriptors)
@@ -256,51 +257,49 @@ func accumulateDescriptors(descs *tor.RouterDescriptors) filepath.WalkFunc {
 	}
 }
 
-// processDescriptors attempts to parse the given file and compute all pairwise
-// similarities if parsing succeeded.
-func processDescriptors(path string, info os.FileInfo, err error) error {
-
-	objects, err := extractObjects(path, info)
-	if err != nil {
-		log.Println(err)
-		return nil
-	}
-
-	switch v := objects.(type) {
-	case *tor.RouterDescriptors:
-		PairwiseSimilarities(v)
-	default:
-		log.Printf("File format of \"%s\" not yet supported.\n", path)
-	}
-
-	return nil
-}
-
-// AnalyseSimilarities walks the given file or directory and computes pairwise
+// SimilarityMatrix walks the given file or directory and computes pairwise
 // relay similarities.  If the cumulative argument is set to true, the content
 // of all files is accumulated rather than analysed independently.
-func AnalyseSimilarities(path string, cumulative bool) {
+func SimilarityMatrix(params *CmdLineParams) {
 
-	if cumulative {
+	if params.Cumulative {
 		log.Println("Processing files cumulatively.")
 		descs := tor.NewRouterDescriptors()
-		filepath.Walk(path, accumulateDescriptors(descs))
-		PairwiseSimilarities(descs)
+		filepath.Walk(params.InputData, accumulateDescriptors(descs))
+		genSimilarityMatrix(descs, params.Threshold, params.Visualise)
 	} else {
 		log.Println("Processing files independently.")
-		filepath.Walk(path, processDescriptors)
+
+		processDescs := func(path string, info os.FileInfo, err error) error {
+			objects, err := extractObjects(path, info)
+			if err != nil {
+				log.Println(err)
+				return nil
+			}
+
+			switch objs := objects.(type) {
+			case *tor.RouterDescriptors:
+				genSimilarityMatrix(objs, params.Threshold, params.Visualise)
+			default:
+				log.Printf("File format of \"%s\" not yet supported.\n", path)
+			}
+
+			return nil
+		}
+
+		filepath.Walk(params.InputData, processDescs)
 	}
 }
 
 // FindNearestNeighbours attempts to find the nearest neighbours for the given
 // relay.
-func FindNearestNeighbours(path string, rootrelay string, neighbours int) {
+func FindNearestNeighbours(params *CmdLineParams) {
 
-	objects, err := tor.ParseUnknownFile(path)
+	objects, err := tor.ParseUnknownFile(params.InputData)
 	if err != nil {
 		log.Fatalln(err)
 		return
 	}
 
-	VantagePointTreeSearch(objects, rootrelay, neighbours)
+	VantagePointTreeSearch(objects, params.ReferenceRelay, params.Neighbours)
 }
