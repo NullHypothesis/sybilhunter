@@ -1,3 +1,5 @@
+![sybilhunter logo](https://nullhypothesis.github.com/sybilhunter_logo.png)
+
 Overview
 --------
 `sybilhunter` implements a number of analysis techniques to find Sybils and
