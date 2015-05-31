@@ -20,7 +20,7 @@ a file containing a network consensus or relay descriptors:
 Next, here's how you can analyse how often relays changed their fingerprint in
 a set of consensus documents:
 
-    $ sybilhunter -data /path/to//consensuses/ -fingerprints
+    $ sybilhunter -data /path/to/consensuses/ -fingerprints
 
 Alternatives
 ------------
