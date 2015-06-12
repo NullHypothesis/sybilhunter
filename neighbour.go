@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 	vptree "github.com/DataWraith/vptree"
@@ -92,5 +93,16 @@ func VantagePointTreeSearch(objects tor.ObjectSet, rootrelay string, neighbours 
 			similarRelay.GetFingerprint()[:8],
 			distances[i],
 			similarRelay.GetFingerprint())
+	}
+}
+
+// FindNearestNeighbours attempts to find the n nearest neighbours for the
+// given reference relay.
+func FindNearestNeighbours(channel chan tor.ObjectSet, params *CmdLineParams, group *sync.WaitGroup) {
+
+	defer group.Done()
+
+	for objects := range channel {
+		VantagePointTreeSearch(objects, params.ReferenceRelay, params.Neighbours)
 	}
 }

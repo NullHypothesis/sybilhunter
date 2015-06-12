@@ -5,9 +5,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
 	"strings"
+	"sync"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 	levenshtein "github.com/arbovm/levenshtein"
@@ -248,100 +247,19 @@ func genSimilarityMatrix(descs *tor.RouterDescriptors, params *CmdLineParams) {
 	}
 }
 
-// extractObjects attempts to parse the given, unknown file and returns a
-// collection of objects.  It's up to the caller to convert the returned
-// interface type to something more useful.
-func extractObjects(path string, info os.FileInfo) (tor.ObjectSet, error) {
-
-	if _, err := os.Stat(path); err != nil {
-		return nil, fmt.Errorf("File \"%s\" does not exist.", path)
-	}
-
-	if info.IsDir() {
-		return nil, fmt.Errorf("\"%s\" is a directory.", path)
-	}
-
-	objects, err := tor.ParseUnknownFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return objects, nil
-}
-
-// accumulateDescriptors returns a walking function that accumulates the router
-// descriptors of all encountered files.
-func accumulateDescriptors(descs *tor.RouterDescriptors) filepath.WalkFunc {
-
-	return func(path string, info os.FileInfo, err error) error {
-
-		if err != nil {
-			log.Println(err)
-			return nil
-		}
-
-		objects, err := extractObjects(path, info)
-		if err != nil {
-			log.Println(err)
-			return nil
-		}
-
-		switch v := objects.(type) {
-		case *tor.RouterDescriptors:
-			for fpr, getVal := range v.RouterDescriptors {
-				descs.Set(fpr, getVal())
-			}
-		default:
-			log.Printf("File format of \"%s\" not yet supported.\n", path)
-		}
-
-		return nil
-	}
-}
-
 // SimilarityMatrix walks the given file or directory and computes pairwise
 // relay similarities.  If the cumulative argument is set to true, the content
 // of all files is accumulated rather than analysed independently.
-func SimilarityMatrix(params *CmdLineParams) {
+func SimilarityMatrix(channel chan tor.ObjectSet, params *CmdLineParams, group *sync.WaitGroup) {
 
-	if params.Cumulative {
-		log.Println("Processing files cumulatively.")
-		descs := tor.NewRouterDescriptors()
-		filepath.Walk(params.InputData, accumulateDescriptors(descs))
-		genSimilarityMatrix(descs, params)
-	} else {
-		log.Println("Processing files independently.")
+	defer group.Done()
 
-		processDescs := func(path string, info os.FileInfo, err error) error {
-			objects, err := extractObjects(path, info)
-			if err != nil {
-				log.Println(err)
-				return nil
-			}
-
-			switch objs := objects.(type) {
-			case *tor.RouterDescriptors:
-				genSimilarityMatrix(objs, params)
-			default:
-				log.Printf("File format of \"%s\" not yet supported.\n", path)
-			}
-
-			return nil
+	for objects := range channel {
+		switch v := objects.(type) {
+		case *tor.RouterDescriptors:
+			genSimilarityMatrix(v, params)
+		case *tor.Consensus:
+			log.Fatalf("Couldn't analyse \"%s\" because consensus file format not yet supported.\n", params.InputData)
 		}
-
-		filepath.Walk(params.InputData, processDescs)
 	}
-}
-
-// FindNearestNeighbours attempts to find the nearest neighbours for the given
-// relay.
-func FindNearestNeighbours(params *CmdLineParams) {
-
-	objects, err := tor.ParseUnknownFile(params.InputData)
-	if err != nil {
-		log.Fatalln(err)
-		return
-	}
-
-	VantagePointTreeSearch(objects, params.ReferenceRelay, params.Neighbours)
 }

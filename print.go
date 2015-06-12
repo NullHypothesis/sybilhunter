@@ -1,50 +1,28 @@
-// Print the content of files for easy grepping.
+// Pretty-print objects for easy grepping.
 
 package main
 
 import (
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
+	"sync"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 )
 
-// printFiles prints the content of all supported files found in the provided
-// directory or file.
-func printFiles(path string, info os.FileInfo, err error) error {
+// PrettyPrint prints all objects within the object sets received over the
+// given channel.  The output is meant to be human-readable and easy to analyse
+// and grep.
+func PrettyPrint(channel chan tor.ObjectSet, params *CmdLineParams, group *sync.WaitGroup) {
 
-	if _, err = os.Stat(path); err != nil {
-		log.Printf("File \"%s\" does not exist.\n", path)
-		return nil
-	}
-
-	if info.IsDir() {
-		return nil
-	}
-
-	log.Printf("Parsing file \"%s\".\n", path)
-	objects, err := tor.ParseUnknownFile(path)
-	if err != nil {
-		log.Printf("%s", err)
-		// Return nil because we don't want to abort walking after this error.
-		return nil
-	}
+	defer group.Done()
 
 	counter := 0
-	for obj := range objects.Iterate() {
-		fmt.Println(obj)
-		counter += 1
+	for objects := range channel {
+		for object := range objects.Iterate() {
+			fmt.Println(object)
+			counter += 1
+		}
 	}
 	log.Printf("Printed %d objects.\n", counter)
-
-	return nil
-}
-
-// PrettyPrint calls printFiles for all files in the provided file or
-// directory.
-func PrettyPrint(params *CmdLineParams) {
-
-	filepath.Walk(params.InputData, printFiles)
 }
