@@ -53,6 +53,7 @@ func main() {
 	cumulative := flag.Bool("cumulative", false, "Accumulate all files in a directory rather than process them independently.")
 	visualise := flag.Bool("visualise", false, "Write DOT code to stdout, that can then be turned into a diagram using Graphviz.")
 	nofamily := flag.Bool("nofamily", true, "Don't interpret MyFamily relationships as Sybils.")
+	churn := flag.Bool("churn", false, "Determine churn rate of given set of consensuses.  Requires -threshold parameter.")
 
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
 	flag.IntVar(&threshold, "threshold", -1, "Analysis-specific threshold.")
@@ -99,8 +100,12 @@ func main() {
 		params.Callbacks = append(params.Callbacks, FindNearestNeighbours)
 	}
 
+	if *churn {
+		params.Callbacks = append(params.Callbacks, AnalyseChurn)
+	}
+
 	if len(params.Callbacks) == 0 {
-		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, or -neighbours.")
+		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, or -churn.")
 	}
 
 	if err := ParseFiles(&params); err != nil {
