@@ -192,7 +192,7 @@ func genSimilarityMatrix(descs *tor.RouterDescriptors, params *CmdLineParams) {
 
 	// Turn the map keys (i.e., the relays' fingerprints) into a list.
 	size := len(descs.RouterDescriptors)
-	fprs := make([]string, size)
+	fprs := make([]tor.Fingerprint, size)
 
 	i := 0
 	for fpr, _ := range descs.RouterDescriptors {

@@ -35,11 +35,11 @@ func (vs ValueSorter) Less(i int, j int) bool {
 }
 
 // Used to count how often a given fingerprint was observed.
-type FprStats map[string]int
+type FprStats map[tor.Fingerprint]int
 
 // countFingerprints updates the fingerprint statistics with the given
 // fingerprint and address.
-func countFingerprints(fpr string, address string, analysis map[string]FprStats) {
+func countFingerprints(fpr tor.Fingerprint, address string, analysis map[string]FprStats) {
 
 	fprStats, ok := analysis[address]
 	if ok {

@@ -31,7 +31,7 @@ type CmdLineParams struct {
 	NoFamily       bool
 	InputData      string
 	OutputDir      string
-	ReferenceRelay string
+	ReferenceRelay tor.Fingerprint
 
 	// Callbacks holds a slice of analysis functions that are called for parsed
 	// data objects.
@@ -54,6 +54,7 @@ func main() {
 	visualise := flag.Bool("visualise", false, "Write DOT code to stdout, that can then be turned into a diagram using Graphviz.")
 	nofamily := flag.Bool("nofamily", true, "Don't interpret MyFamily relationships as Sybils.")
 	churn := flag.Bool("churn", false, "Determine churn rate of given set of consensuses.  Requires -threshold parameter.")
+	uptime := flag.Bool("uptime", false, "Determine uptime similarities.")
 
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
 	flag.IntVar(&threshold, "threshold", -1, "Analysis-specific threshold.")
@@ -72,7 +73,7 @@ func main() {
 
 	// Store and pass command line arguments to analysis methods.
 	params := CmdLineParams{threshold, *neighbours, *visualise, *cumulative,
-		*nofamily, *data, outputDir, *referenceRelay, []AnalysisCallback{}}
+		*nofamily, *data, outputDir, tor.Fingerprint(*referenceRelay), []AnalysisCallback{}}
 
 	if *data == "" {
 		log.Fatalln("No file or directory given.  Please use the -data switch.")
@@ -104,8 +105,12 @@ func main() {
 		params.Callbacks = append(params.Callbacks, AnalyseChurn)
 	}
 
+	if *uptime {
+		params.Callbacks = append(params.Callbacks, VisualiseUptime)
+	}
+
 	if len(params.Callbacks) == 0 {
-		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, or -churn.")
+		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, -churn, or -uptime.")
 	}
 
 	if err := ParseFiles(&params); err != nil {

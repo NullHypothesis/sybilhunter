@@ -4,7 +4,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
@@ -19,7 +18,7 @@ func QuadraticComparison(objects tor.ObjectSet, distFunc Distance, threshold flo
 
 	// Turn the relays' fingerprints into a list.
 	size := objects.Length()
-	fprs := make([]string, size)
+	fprs := make([]tor.Fingerprint, size)
 
 	i := 0
 	for obj := range objects.Iterate() {
@@ -49,10 +48,10 @@ func QuadraticComparison(objects tor.ObjectSet, distFunc Distance, threshold flo
 // VantagePointTreeSearch builds a vantage point tree out of the given objects.
 // It then attempts to find the nearest neighbours to the given relay
 // identified by its fingerprint.  The result is printed to stdout.
-func VantagePointTreeSearch(objects tor.ObjectSet, rootrelay string, neighbours int) {
+func VantagePointTreeSearch(objects tor.ObjectSet, rootrelay tor.Fingerprint, neighbours int) {
 
 	// Find the relay whose distance to all other relays is to be determined.
-	targetRelay, found := objects.GetObject(strings.TrimSpace(rootrelay))
+	targetRelay, found := objects.GetObject(tor.SanitiseFingerprint(rootrelay))
 	if !found {
 		log.Fatalf("Could not find relay with fingerprint %s.", rootrelay)
 		return
