@@ -1,4 +1,7 @@
 ![sybilhunter logo](https://nullhypothesis.github.com/sybilhunter_logo.png)
+===========================================================================
+
+[![Build Status](https://travis-ci.org/NullHypothesis/sybilhunter.svg?branch=master)](https://travis-ci.org/NullHypothesis/sybilhunter)
 
 Overview
 --------
