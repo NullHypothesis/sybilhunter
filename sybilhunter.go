@@ -54,7 +54,6 @@ func main() {
 	visualise := flag.Bool("visualise", false, "Write DOT code to stdout, that can then be turned into a diagram using Graphviz.")
 	nofamily := flag.Bool("nofamily", true, "Don't interpret MyFamily relationships as Sybils.")
 	churn := flag.Bool("churn", false, "Determine churn rate of given set of consensuses.  Requires -threshold parameter.")
-	uptime := flag.Bool("uptime", false, "Determine uptime similarities.")
 
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
 	flag.Float64Var(&threshold, "threshold", -1, "Analysis-specific threshold.")
@@ -105,12 +104,8 @@ func main() {
 		params.Callbacks = append(params.Callbacks, AnalyseChurn)
 	}
 
-	if *uptime {
-		params.Callbacks = append(params.Callbacks, VisualiseUptime)
-	}
-
 	if len(params.Callbacks) == 0 {
-		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, -churn, or -uptime.")
+		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, or -churn.")
 	}
 
 	if err := ParseFiles(&params); err != nil {
