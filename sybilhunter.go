@@ -24,7 +24,7 @@ var outputDir string
 
 // CmdLineParams stores command line arguments.
 type CmdLineParams struct {
-	Threshold      int
+	Threshold      float64
 	Neighbours     int
 	Visualise      bool
 	Cumulative     bool
@@ -43,7 +43,7 @@ type AnalysisCallback func(chan tor.ObjectSet, *CmdLineParams, *sync.WaitGroup)
 
 func main() {
 
-	var threshold int
+	var threshold float64
 
 	// Handle command line arguments.
 	showVersion := flag.Bool("version", false, "Show version number and exit.")
@@ -57,7 +57,7 @@ func main() {
 	uptime := flag.Bool("uptime", false, "Determine uptime similarities.")
 
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
-	flag.IntVar(&threshold, "threshold", -1, "Analysis-specific threshold.")
+	flag.Float64Var(&threshold, "threshold", -1, "Analysis-specific threshold.")
 
 	data := flag.String("data", "", "File or directory to analyse.  It must contain network statuses or relay descriptors.")
 	referenceRelay := flag.String("referencerelay", "", "Relay that's used as reference for nearest neighbour search.")

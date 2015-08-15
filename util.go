@@ -5,10 +5,47 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"sort"
 	"time"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 )
+
+// RouterStatusSorter implements the sort interface to sort router statuses by
+// different criteria.
+type RouterStatusSorter struct {
+	RouterStatuses []tor.GetStatus
+
+	By func(i, j tor.GetStatus) bool
+}
+
+type By func(i, j tor.GetStatus) bool
+
+// Sort sorts by the criteria of the given method receiver.
+func (by By) Sort(statuses []tor.GetStatus) {
+
+	rss := &RouterStatusSorter{
+		RouterStatuses: statuses,
+		By:             by,
+	}
+
+	sort.Sort(rss)
+}
+
+// Implement the sort interface (1/3).
+func (rss *RouterStatusSorter) Len() int {
+	return len(rss.RouterStatuses)
+}
+
+// Implement the sort interface (2/3).
+func (rss *RouterStatusSorter) Swap(i int, j int) {
+	rss.RouterStatuses[i], rss.RouterStatuses[j] = rss.RouterStatuses[j], rss.RouterStatuses[i]
+}
+
+// Implement the sort interface (3/3).
+func (rss *RouterStatusSorter) Less(i int, j int) bool {
+	return rss.By(rss.RouterStatuses[i], rss.RouterStatuses[j])
+}
 
 // getOutputDir returns the directory to which files can be written to.  If it
 // is not set by the user, we randomly generate a new one in /tmp/.

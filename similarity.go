@@ -41,7 +41,7 @@ type DescriptorSimilarity struct {
 	ORPortDiff      uint16
 	SharedFprPrefix uint32
 	LevenshteinDist int
-	SimilarityScore int
+	SimilarityScore float64
 
 	SameFamily   bool
 	SameAddress  bool
@@ -112,7 +112,7 @@ func (s *DescriptorSimilarity) genStringSimilarity() {
 			s.desc1.ORPort, s.desc2.ORPort)
 	}
 
-	s.SimilarityScore = similarities
+	s.SimilarityScore = float64(similarities)
 	s.StringSummary = fmt.Sprintf("%d similarities%s:\n"+
 		"%s%s%s%s%s%s%s%s",
 		similarities, family,
