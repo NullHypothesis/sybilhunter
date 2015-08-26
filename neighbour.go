@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 	vptree "github.com/DataWraith/vptree"
@@ -73,11 +74,14 @@ func VantagePointTreeSearch(objects tor.ObjectSet, rootrelay tor.Fingerprint, ne
 	}
 
 	log.Println("Building vantage point tree.")
+	now := time.Now()
 	tree := vptree.New(lvnst, objSlice)
-	log.Println("Done building vantage point tree.")
+	log.Printf("Done building vantage point tree after %s.", time.Since(now))
 
 	log.Printf("Searching %d nearest neighbours to %s.\n", neighbours, rootrelay)
+	now = time.Now()
 	similarRelays, distances := tree.Search(targetRelay, neighbours+1)
+	log.Printf("Found relays after looking for %s.", time.Since(now))
 
 	// We skip the most similar relay because it's targetRelay.
 	for i := 1; i < len(similarRelays); i++ {
