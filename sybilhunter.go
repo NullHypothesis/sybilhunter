@@ -29,6 +29,7 @@ type CmdLineParams struct {
 	Visualise      bool
 	Cumulative     bool
 	NoFamily       bool
+	ArchiveData    string
 	InputData      string
 	OutputDir      string
 	ReferenceRelay tor.Fingerprint
@@ -49,6 +50,7 @@ func main() {
 	showVersion := flag.Bool("version", false, "Show version number and exit.")
 	printFiles := flag.Bool("print", false, "Print the content of all files in the given file or directory.")
 	fingerprints := flag.Bool("fingerprint", false, "Analyse relay fingerprints in the given file or directory.")
+	contrib := flag.Bool("contrib", false, "Determine the bandwidth contribution of relays in the given IP address blocks.")
 	matrix := flag.Bool("matrix", false, "Calculate O(n^2) similarity matrix for all objects in the given file or directory.")
 	cumulative := flag.Bool("cumulative", false, "Accumulate all files in a directory rather than process them independently.")
 	visualise := flag.Bool("visualise", false, "Write DOT code to stdout, that can then be turned into a diagram using Graphviz.")
@@ -60,6 +62,7 @@ func main() {
 
 	data := flag.String("data", "", "File or directory to analyse.  It must contain network statuses or relay descriptors.")
 	referenceRelay := flag.String("referencerelay", "", "Relay that's used as reference for nearest neighbour search.")
+	input := flag.String("input", "", "Module-specific input data.")
 	flag.StringVar(&outputDir, "output", "", "Directory where analysis results are written to.")
 
 	flag.Parse()
@@ -72,7 +75,7 @@ func main() {
 
 	// Store and pass command line arguments to analysis methods.
 	params := CmdLineParams{threshold, *neighbours, *visualise, *cumulative,
-		*nofamily, *data, outputDir, tor.Fingerprint(*referenceRelay), []AnalysisCallback{}}
+		*nofamily, *data, *input, outputDir, tor.Fingerprint(*referenceRelay), []AnalysisCallback{}}
 
 	if *data == "" {
 		log.Fatalln("No file or directory given.  Please use the -data switch.")
@@ -104,6 +107,13 @@ func main() {
 		params.Callbacks = append(params.Callbacks, AnalyseChurn)
 	}
 
+	if *contrib {
+		if *input == "" {
+			log.Fatalln("Need a file containing IP address blocks, one per line.  Use -input switch.")
+		}
+		params.Callbacks = append(params.Callbacks, BandwidthContribution)
+	}
+
 	if len(params.Callbacks) == 0 {
 		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, or -churn.")
 	}
@@ -111,7 +121,6 @@ func main() {
 	if err := ParseFiles(&params); err != nil {
 		log.Fatal(err)
 	}
-
 }
 
 // GatherObjects returns a WalkFunc that gathers data objects from a file or
@@ -177,8 +186,8 @@ func ParseFiles(params *CmdLineParams) error {
 	}
 
 	if params.Cumulative {
-		log.Printf("Processing \"%s\" cumulatively.\n", params.InputData)
-		filepath.Walk(params.InputData, GatherObjects(&objs, nil))
+		log.Printf("Processing \"%s\" cumulatively.\n", params.ArchiveData)
+		filepath.Walk(params.ArchiveData, GatherObjects(&objs, nil))
 
 		if objs == nil {
 			return errors.New("Gathered object set empty.  Are we parsing the right files?")
@@ -189,8 +198,8 @@ func ParseFiles(params *CmdLineParams) error {
 			channel <- objs
 		}
 	} else {
-		log.Printf("Processing \"%s\" independently.\n", params.InputData)
-		filepath.Walk(params.InputData, GatherObjects(nil, channels))
+		log.Printf("Processing \"%s\" independently.\n", params.ArchiveData)
+		filepath.Walk(params.ArchiveData, GatherObjects(nil, channels))
 	}
 
 	// Close processing channels and wait for goroutines to finish.
