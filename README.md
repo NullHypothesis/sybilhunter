@@ -14,6 +14,18 @@ to be very similar to each other.  Ideally, `sybilhunter` should become a Swiss
 Army knife for analysing anomalies in network consensuses and relay
 descriptors.
 
+Get started in 5 minutes
+------------------------
+Assuming you have a working Go installation:
+
+    $ go get github.com/NullHypothesis/sybilhunter
+    $ wget https://collector.torproject.org/archive/relay-descriptors/consensuses/consensuses-2015-08.tar.xz
+    $ tar xvJf consensuses-2015-08.tar.xz
+    $ sybilhunter -data consensuses-2015-08 -print
+
+Now you have one month worth of consensuses and can proceed to the next section
+to learn more about analysis examples.
+
 Examples
 --------
 `sybilhunter` takes as input data obtained from
