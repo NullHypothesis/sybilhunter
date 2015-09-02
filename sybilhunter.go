@@ -10,6 +10,7 @@ import (
 	"path"
 	"path/filepath"
 	"sync"
+	"time"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 )
@@ -32,6 +33,8 @@ type CmdLineParams struct {
 	ArchiveData    string
 	InputData      string
 	OutputDir      string
+	StartDate      time.Time
+	EndDate        time.Time
 	ReferenceRelay tor.Fingerprint
 
 	// Callbacks holds a slice of analysis functions that are called for parsed
@@ -41,6 +44,17 @@ type CmdLineParams struct {
 
 // AnalysisCallback is a callback function that analyses the given object set.
 type AnalysisCallback func(chan tor.ObjectSet, *CmdLineParams, *sync.WaitGroup)
+
+// parseDate extracts and returns the date that is in the given date string.
+func parseDate(dateString string) time.Time {
+
+	date, err := time.Parse("2006-01-02", dateString)
+	if err != nil {
+		log.Fatalf("Given date \"%s\" invalid.  We expect the format YYYY-MM-DD.\n", dateString)
+	}
+
+	return date
+}
 
 func main() {
 
@@ -60,6 +74,8 @@ func main() {
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
 	flag.Float64Var(&threshold, "threshold", -1, "Analysis-specific threshold.")
 
+	startString := flag.String("startdate", "", "Start date for analyzed data in format YYYY-MM-DD.")
+	endString := flag.String("enddate", "", "End date for analyzed data in format YYYY-MM-DD.")
 	data := flag.String("data", "", "File or directory to analyse.  It must contain network statuses or relay descriptors.")
 	referenceRelay := flag.String("referencerelay", "", "Relay that's used as reference for nearest neighbour search.")
 	input := flag.String("input", "", "Module-specific input data.")
@@ -73,9 +89,23 @@ func main() {
 		os.Exit(0)
 	}
 
+	var startDate, endDate time.Time
+	if *startString == "" {
+		startDate = time.Date(1970, time.January, 1, 00, 0, 0, 0, time.UTC)
+	} else {
+		startDate = parseDate(*startString)
+	}
+
+	if *endString == "" {
+		endDate = time.Now()
+	} else {
+		endDate = parseDate(*endString)
+	}
+
 	// Store and pass command line arguments to analysis methods.
 	params := CmdLineParams{threshold, *neighbours, *visualise, *cumulative,
-		*nofamily, *data, *input, outputDir, tor.Fingerprint(*referenceRelay), []AnalysisCallback{}}
+		*nofamily, *data, *input, outputDir, startDate, endDate,
+		tor.Fingerprint(*referenceRelay), []AnalysisCallback{}}
 
 	if *data == "" {
 		log.Fatalln("No file or directory given.  Please use the -data switch.")
@@ -123,11 +153,27 @@ func main() {
 	}
 }
 
+// fileInRange tries to extract the time that's part of consensus file names,
+// e.g., 2015-07-31-15-00-00-consensus.  If the time is in the given date
+// range, it returns true, otherwise false.  By trusting that the file name
+// contains a time stamp (and all consensus files from CollecTor do), we can
+// discard irrelevant files significantly faster than by parsing their content.
+func fileInRange(fileName string, startDate, endDate time.Time) bool {
+
+	date, err := time.Parse("2006-01-02-15-04-05-consensus", path.Base(fileName))
+	if err != nil {
+		// Parse the file if we are unable to extract the timestamp.
+		return true
+	}
+
+	return date.After(startDate) && date.Before(endDate)
+}
+
 // GatherObjects returns a WalkFunc that gathers data objects from a file or
 // directory.  If the given object set pointer is not nil, it is used to
 // accumulate objects.  If the given channels are not nil, GatherObjects sends
 // the gathered data objects over the channels instead of accumulating them.
-func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet) filepath.WalkFunc {
+func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet, params *CmdLineParams) filepath.WalkFunc {
 
 	return func(path string, info os.FileInfo, err error) error {
 
@@ -137,6 +183,11 @@ func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet) filepath.
 		}
 
 		if info.IsDir() {
+			return nil
+		}
+
+		if !fileInRange(path, params.StartDate, params.EndDate) {
+			log.Printf("File %s not in desired date range.\n", path)
 			return nil
 		}
 
@@ -187,7 +238,7 @@ func ParseFiles(params *CmdLineParams) error {
 
 	if params.Cumulative {
 		log.Printf("Processing \"%s\" cumulatively.\n", params.ArchiveData)
-		filepath.Walk(params.ArchiveData, GatherObjects(&objs, nil))
+		filepath.Walk(params.ArchiveData, GatherObjects(&objs, nil, params))
 
 		if objs == nil {
 			return errors.New("Gathered object set empty.  Are we parsing the right files?")
@@ -199,7 +250,7 @@ func ParseFiles(params *CmdLineParams) error {
 		}
 	} else {
 		log.Printf("Processing \"%s\" independently.\n", params.ArchiveData)
-		filepath.Walk(params.ArchiveData, GatherObjects(nil, channels))
+		filepath.Walk(params.ArchiveData, GatherObjects(nil, channels, params))
 	}
 
 	// Close processing channels and wait for goroutines to finish.
