@@ -56,6 +56,7 @@ func main() {
 	visualise := flag.Bool("visualise", false, "Write DOT code to stdout, that can then be turned into a diagram using Graphviz.")
 	nofamily := flag.Bool("nofamily", true, "Don't interpret MyFamily relationships as Sybils.")
 	churn := flag.Bool("churn", false, "Determine churn rate of given set of consensuses.  Requires -threshold parameter.")
+	uptime := flag.Bool("uptime", false, "Create relay uptime visualisation.  Use -input for output file name.")
 
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
 	flag.Float64Var(&threshold, "threshold", -1, "Analysis-specific threshold.")
@@ -112,6 +113,14 @@ func main() {
 			log.Fatalln("Need a file containing IP address blocks, one per line.  Use -input switch.")
 		}
 		params.Callbacks = append(params.Callbacks, BandwidthContribution)
+	}
+
+	if *uptime {
+		if *input == "" {
+			log.Println("You didn't use -input to specify the file name to write to.  Using default.")
+			params.InputData = "/tmp/uptime-visualisation.jpg"
+		}
+		params.Callbacks = append(params.Callbacks, AnalyseUptimes)
 	}
 
 	if len(params.Callbacks) == 0 {
