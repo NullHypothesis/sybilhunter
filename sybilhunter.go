@@ -25,6 +25,7 @@ var outputDir string
 // CmdLineParams stores command line arguments.
 type CmdLineParams struct {
 	Threshold      float64
+	BwFraction     float64
 	Neighbours     int
 	Visualise      bool
 	Cumulative     bool
@@ -58,6 +59,7 @@ func main() {
 	churn := flag.Bool("churn", false, "Determine churn rate of given set of consensuses.  Requires -threshold parameter.")
 	uptime := flag.Bool("uptime", false, "Create relay uptime visualisation.  Use -input for output file name.")
 
+	bwfraction := flag.Float64("bwfraction", -1, "Print which relays amount to the given total bandwidth fraction.")
 	neighbours := flag.Int("neighbours", 0, "Find n nearest neighbours.")
 	flag.Float64Var(&threshold, "threshold", -1, "Analysis-specific threshold.")
 
@@ -75,7 +77,7 @@ func main() {
 	}
 
 	// Store and pass command line arguments to analysis methods.
-	params := CmdLineParams{threshold, *neighbours, *visualise, *cumulative,
+	params := CmdLineParams{threshold, *bwfraction, *neighbours, *visualise, *cumulative,
 		*nofamily, *data, *input, outputDir, tor.Fingerprint(*referenceRelay), []AnalysisCallback{}}
 
 	if *data == "" {
@@ -123,8 +125,15 @@ func main() {
 		params.Callbacks = append(params.Callbacks, AnalyseUptimes)
 	}
 
+	if *bwfraction != -1 {
+		if *bwfraction < 0 || *bwfraction > 1 {
+			log.Fatalf("Bandwidth fraction must be in [0,1], but %.3f was given.\n", *bwfraction)
+		}
+		params.Callbacks = append(params.Callbacks, FindFastRelays)
+	}
+
 	if len(params.Callbacks) == 0 {
-		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, or -churn.")
+		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, -bwfraction, or -churn.")
 	}
 
 	if err := ParseFiles(&params); err != nil {
