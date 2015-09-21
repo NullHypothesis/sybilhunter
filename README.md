@@ -39,6 +39,17 @@ a set of consensus documents:
 
     $ sybilhunter -data /path/to/consensuses/ -fingerprints
 
+You can also put command line arguments into the configuration file
+`~/.sybilhunterrc`.  The format is just like command line arguments, one per
+line.  For example:
+
+    $ cat ~/.sybilhunterrc
+    -descdir /path/to/server/descriptors/
+    -referencerelay 9B94CD0B7B8057EAF21BA7F023B7A1C8CA9CE645
+
+Note that command line arguments overwrite the arguments in the configuration
+file.
+
 Alternatives
 ------------
 
