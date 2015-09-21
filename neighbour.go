@@ -106,6 +106,6 @@ func FindNearestNeighbours(channel chan tor.ObjectSet, params *CmdLineParams, gr
 	defer group.Done()
 
 	for objects := range channel {
-		VantagePointTreeSearch(objects, params.ReferenceRelay, params.Neighbours)
+		VantagePointTreeSearch(objects, tor.Fingerprint(params.ReferenceRelay), params.Neighbours)
 	}
 }
