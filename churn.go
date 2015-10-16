@@ -10,11 +10,51 @@ import (
 	tor "git.torproject.org/user/phw/zoossh.git"
 )
 
-// consensusTime returns a prettily-formatted string, showing the consensus'
-// valid-after time.
-func consensusTime(consensus *tor.Consensus) string {
+const (
+	movingAvgWinSize = 24
+)
 
-	return consensus.ValidAfter.Format("2006-01-02-15-00-00")
+// Churn represents a churn value.
+type Churn float64
+
+// MovingAverage represents a simple moving average.
+type MovingAverage struct {
+	WindowIndex int
+	WindowSize  int
+	WindowFill  int
+	Window      []Churn
+}
+
+// NewMovingAverage allocates and returns a new moving average struct.
+func NewMovingAverage(windowSize int) *MovingAverage {
+
+	return &MovingAverage{WindowIndex: 0, WindowSize: movingAvgWinSize, Window: make([]Churn, movingAvgWinSize)}
+}
+
+// CalcAvg determines and returns the mean of the moving average window.
+func (ma *MovingAverage) CalcAvg() Churn {
+
+	var total Churn
+	for i := 0; i < ma.WindowSize; i++ {
+		total += ma.Window[i]
+	}
+	return total / Churn(ma.WindowSize)
+}
+
+// AddValue returns a churn value to the moving average window.
+func (ma *MovingAverage) AddValue(val Churn) {
+
+	if ma.WindowFill < ma.WindowSize {
+		ma.WindowFill++
+	}
+	ma.Window[ma.WindowIndex] = val
+	ma.WindowIndex = (ma.WindowIndex + 1) % ma.WindowSize
+}
+
+// IsWindowFull returns true if the moving average's window is full.
+func (ma *MovingAverage) IsWindowFull() bool {
+
+	return ma.WindowFill == ma.WindowSize
 }
 
 // dumpChurnRelays dumps the given relays to stdout for manual analysis.
@@ -31,44 +71,44 @@ func dumpChurnRelays(goneRelays, newRelays *tor.Consensus) {
 	By(nickname).Sort(fresh)
 
 	for _, getStatus := range gone {
-		fmt.Printf("- <https://atlas.torproject.org/#details/%s> %s\n",
+		log.Printf("- <https://atlas.torproject.org/#details/%s> %s\n",
 			getStatus().Fingerprint, getStatus().Nickname)
 	}
-	fmt.Println()
 	for _, getStatus := range fresh {
-		fmt.Printf("+ <https://atlas.torproject.org/#details/%s> %s\n",
+		log.Printf("+ <https://atlas.torproject.org/#details/%s> %s\n",
 			getStatus().Fingerprint, getStatus().Nickname)
 	}
 }
 
 // determineChurn determines and returns the churn rate of the two given
-// subsequent consensuses.  For the churn rate, we use the formula shown in
+// subsequent consensuses.  For the churn rate, we adapt the formula shown in
 // Section 2.1 of: <http://www.cs.berkeley.edu/~istoica/papers/2006/churn.pdf>.
-func determineChurn(prevConsensus, newConsensus *tor.Consensus) float64 {
+func determineChurn(prevConsensus, newConsensus *tor.Consensus) (Churn, Churn) {
 
 	goneRelays := prevConsensus.Subtract(newConsensus)
 	newRelays := newConsensus.Subtract(prevConsensus)
 
-	total := goneRelays.Length() + newRelays.Length()
 	max := math.Max(float64(prevConsensus.Length()), float64(newConsensus.Length()))
-	churn := (float64(total) / max) / 2
+	newChurn := (float64(newRelays.Length()) / max)
+	goneChurn := (float64(goneRelays.Length()) / max)
 
-	fmt.Printf("Churn between %s and %s is %.5f (%d gone, %d new).\n",
-		consensusTime(newConsensus), consensusTime(prevConsensus), churn,
-		goneRelays.Length(), newRelays.Length())
-
-	return churn
+	return Churn(newChurn), Churn(goneChurn)
 }
 
-// AnalyseChurn determines the churn rate of a set of consecutive consensuses.
-// If the churn rate exceeds the given threshold, all new and disappeared relays
-// are dumped to stdout.
+// AnalyseChurn determines the churn rates of a set of consecutive consensuses.
+// If the churn rate exceeds the given threshold, all new and disappeared
+// relays are dumped to stdout.
 func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync.WaitGroup) {
 
 	defer group.Done()
 
-	var newConsensus *tor.Consensus
-	var prevConsensus = tor.NewConsensus()
+	var newConsensus, prevConsensus *tor.Consensus
+
+	log.Printf("Threshold for churn analysis is %.5f.\n", params.Threshold)
+	fmt.Println("date,newchurn,gonechurn,avgnewchurn,avggonechurn")
+
+	movingAvgNew := NewMovingAverage(movingAvgWinSize)
+	movingAvgGone := NewMovingAverage(movingAvgWinSize)
 
 	// Every loop iteration processes one consensus.  We compare consensus t
 	// with consensus t - 1.
@@ -81,13 +121,26 @@ func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync
 			log.Fatalln("Only router status files are supported for churn analysis.")
 		}
 
-		if prevConsensus.Length() == 0 {
+		if prevConsensus == nil {
 			prevConsensus = newConsensus
 			continue
 		}
+		newChurn, goneChurn := determineChurn(prevConsensus, newConsensus)
 
-		churn := determineChurn(prevConsensus, newConsensus)
-		if churn >= params.Threshold {
+		// Update moving averages.
+		movingAvgNew.AddValue(newChurn)
+		movingAvgGone.AddValue(goneChurn)
+
+		newAvg := movingAvgNew.CalcAvg()
+		goneAvg := movingAvgGone.CalcAvg()
+
+		// Print raw numbers to stdout for later analysis.
+		if movingAvgNew.IsWindowFull() {
+			timeStr := newConsensus.ValidAfter.Format("2006-01-02T15:04:05Z")
+			fmt.Printf("%s,%.5f,%.5f,%.5f,%.5f\n", timeStr, newChurn, goneChurn, newAvg, goneAvg)
+		}
+
+		if (newChurn >= Churn(params.Threshold)) || (goneChurn >= Churn(params.Threshold)) {
 			goneRelays := prevConsensus.Subtract(newConsensus)
 			newRelays := newConsensus.Subtract(prevConsensus)
 			dumpChurnRelays(goneRelays, newRelays)
