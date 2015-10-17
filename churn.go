@@ -6,6 +6,7 @@ import (
 	"log"
 	"math"
 	"sync"
+	"time"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 )
@@ -125,6 +126,16 @@ func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync
 			prevConsensus = newConsensus
 			continue
 		}
+
+		// Are we missing consensuses?
+		if prevConsensus.ValidAfter.Add(time.Hour) != newConsensus.ValidAfter {
+			log.Printf("Missing consensuses between %s and %s.\n",
+				prevConsensus.ValidAfter.Format(time.RFC3339),
+				newConsensus.ValidAfter.Format(time.RFC3339))
+			prevConsensus = newConsensus
+			continue
+		}
+
 		newChurn, goneChurn := determineChurn(prevConsensus, newConsensus)
 
 		// Update moving averages.
@@ -134,11 +145,13 @@ func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync
 		newAvg := movingAvgNew.CalcAvg()
 		goneAvg := movingAvgGone.CalcAvg()
 
-		// Print raw numbers to stdout for later analysis.
-		if movingAvgNew.IsWindowFull() {
-			timeStr := newConsensus.ValidAfter.Format("2006-01-02T15:04:05Z")
-			fmt.Printf("%s,%.5f,%.5f,%.5f,%.5f\n", timeStr, newChurn, goneChurn, newAvg, goneAvg)
+		// Set averaged values to -1 if we our window isn't full yet.
+		if !movingAvgNew.IsWindowFull() {
+			newAvg = -1
+			goneAvg = -1
 		}
+		timeStr := newConsensus.ValidAfter.Format("2006-01-02T15:04:05Z")
+		fmt.Printf("%s,%.5f,%.5f,%.5f,%.5f\n", timeStr, newChurn, goneChurn, newAvg, goneAvg)
 
 		if (newChurn >= Churn(params.Threshold)) || (goneChurn >= Churn(params.Threshold)) {
 			goneRelays := prevConsensus.Subtract(newConsensus)
