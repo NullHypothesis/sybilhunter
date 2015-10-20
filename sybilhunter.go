@@ -36,6 +36,7 @@ type CmdLineParams struct {
 	Contrib        bool
 	Churn          bool
 	PrintFiles     bool
+	PrintSome      bool
 	Fingerprints   bool
 	Matrix         bool
 	ShowVersion    bool
@@ -75,6 +76,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 	flags.BoolVar(&params.Contrib, "contrib", params.Contrib, "Determine the bandwidth contribution of relays in the given IP address blocks.")
 	flags.BoolVar(&params.Churn, "churn", params.Churn, "Determine churn rate of given set of consensuses.  Requires -threshold parameter.")
 	flags.BoolVar(&params.PrintFiles, "print", params.PrintFiles, "Print the content of all files in the given file or directory.")
+	flags.BoolVar(&params.PrintSome, "printsome", params.PrintSome, "Print the content of all files in the given file or directory that contain the given fingerprints.  Requires -input parameter.")
 	flags.BoolVar(&params.Fingerprints, "fingerprints", params.Fingerprints, "Analyse relay fingerprints in the given file or directory.")
 	flags.BoolVar(&params.Matrix, "matrix", params.Matrix, "Calculate O(n^2) similarity matrix for all objects in the given file or directory.")
 	flags.BoolVar(&params.ShowVersion, "version", params.ShowVersion, "Show version and exit.")
@@ -163,8 +165,11 @@ func main() {
 		params.Callbacks = append(params.Callbacks, AnalyseFingerprints)
 	}
 
-	if params.PrintFiles {
-		params.Callbacks = append(params.Callbacks, PrettyPrint)
+	if params.PrintSome {
+		if params.InputData == "" {
+			log.Fatalln("Need a file containing newline-separated relay fingerprints.  Use -input switch.")
+		}
+		params.Callbacks = append(params.Callbacks, PrintSome)
 	}
 
 	if params.Neighbours != -1 {
@@ -204,7 +209,7 @@ func main() {
 	}
 
 	if len(params.Callbacks) == 0 {
-		log.Fatalln("No command given.  Please use -print, -fingerprint, -matrix, -neighbours, -bwfraction, or -churn.")
+		log.Fatalln("No command given.  Please use -print, -printsome, -fingerprint, -matrix, -neighbours, -bwfraction, or -churn.")
 	}
 
 	if err := ParseFiles(params); err != nil {
