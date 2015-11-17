@@ -165,6 +165,10 @@ func main() {
 		params.Callbacks = append(params.Callbacks, AnalyseFingerprints)
 	}
 
+	if params.PrintFiles {
+		params.Callbacks = append(params.Callbacks, PrettyPrint)
+	}
+
 	if params.PrintSome {
 		if params.InputData == "" {
 			log.Fatalln("Need a file containing newline-separated relay fingerprints.  Use -input switch.")
