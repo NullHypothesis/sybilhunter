@@ -270,24 +270,20 @@ func GetHighlights(uptimes *OrderedUptimes) *Highlights {
 }
 
 // PruneUptimes gets rid of columns that are of little interest, i.e., relays
-// that are mostly online.
-func PruneUptimes(uptimes *Uptimes) {
+// that are always online.
+func PruneUptimes(uptimes *Uptimes, totalConsensuses int) {
 
-	var mostlyOnline, maxOnline, prevRelays int
+	var alwaysOnline, prevRelays int
 	prevRelays = len(uptimes.ForFingerprint)
 
 	for fpr, seq := range uptimes.ForFingerprint {
-		if maxOnline == 0 {
-			maxOnline = len(seq) * 24
-		}
-
-		if seq.TotalUptime() == maxOnline {
-			mostlyOnline++
+		if seq.TotalUptime() == totalConsensuses {
+			alwaysOnline++
 			delete(uptimes.ForFingerprint, fpr)
 		}
 	}
 
-	log.Printf("Pruned %d (out of %d) relays that were mostly online.\n", mostlyOnline, prevRelays)
+	log.Printf("Pruned %d (out of %d) relays that were always online.\n", alwaysOnline, prevRelays)
 }
 
 // AnalyseUptimes analyses the uptime pattern of Tor relays and generates an
@@ -301,9 +297,12 @@ func AnalyseUptimes(channel chan tor.ObjectSet, params *CmdLineParams, group *sy
 	}
 	hour := -1
 	daysPassed := -1
+	totalConsensuses := 0
 
 	// One loop iteration corresponds to one consensus.
 	for objects := range channel {
+
+		totalConsensuses++
 
 		hour = (hour + 1) % 24
 		if hour == 0 {
@@ -330,19 +329,21 @@ func AnalyseUptimes(channel chan tor.ObjectSet, params *CmdLineParams, group *sy
 		log.Fatalln("No consensuses to process.  Exiting.")
 	}
 
-	PruneUptimes(&uptimes)
+	log.Printf("Processed %d consensuses.", totalConsensuses)
+
+	PruneUptimes(&uptimes, totalConsensuses)
 
 	sortedUptimes := SortUptimes(&uptimes)
-	GenImage(sortedUptimes, GetHighlights(sortedUptimes), params.InputData)
+	GenImage(sortedUptimes, GetHighlights(sortedUptimes), params.InputData, totalConsensuses)
 }
 
 // GenImage generates an images out of the generated uptime pattern.  Columns
 // that are suspiciously similar are highlighted.
-func GenImage(uptimes *OrderedUptimes, highlight *Highlights, fileName string) {
+func GenImage(uptimes *OrderedUptimes, highlight *Highlights, fileName string, hours int) {
 
 	// x-axis: relay fingerprints, y-axis: uptime sequences.
 	x := len(uptimes.Fingerprints)
-	y := len(uptimes.Sequences[0]) * 24
+	y := hours
 
 	img := image.NewRGBA(image.Rect(0, 0, x, y))
 	offline := color.RGBA{255, 255, 255, 255}
