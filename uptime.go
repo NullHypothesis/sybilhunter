@@ -241,6 +241,7 @@ func GetHighlights(uptimes *OrderedUptimes) *Highlights {
 	highlight := Highlights{}
 	runlength := 0
 	hours := len(uptimes.Sequences[0]) * 24
+	cluster := 0
 
 	// Determine distance between subsequent relay columns.
 	for i := 0; i < len(uptimes.Fingerprints)-1; i++ {
@@ -257,8 +258,10 @@ func GetHighlights(uptimes *OrderedUptimes) *Highlights {
 			if runlength >= blockLength {
 				for x := 0; x >= -runlength; x-- {
 					highlight[i+x] = true
+					log.Printf("Sybil cluster #%d member: %s\n", cluster, uptimes.Fingerprints[i+x])
 				}
 			}
+			cluster++
 			runlength = 0
 		}
 	}
