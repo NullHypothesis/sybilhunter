@@ -22,7 +22,7 @@ func PrintInfo(descriptorDir string, status *tor.RouterStatus) {
 			fmt.Println("fingerprint,nickname,ip_addr,or_port,dir_port,flags,published,version,platform,bandwidthavg,bandwidthburst,uptime,familysize")
 			printedBanner = true
 		}
-		fmt.Printf("%s, %s, %d, %d, %d, %d\n", status, desc.OperatingSystem, desc.BandwidthAvg, desc.BandwidthBurst, desc.Uptime, len(desc.Family))
+		fmt.Printf("%s,%s,%d,%d,%d,%d\n", status, desc.OperatingSystem, desc.BandwidthAvg, desc.BandwidthBurst, desc.Uptime, len(desc.Family))
 	} else {
 		if !printedBanner {
 			fmt.Println("fingerprint,nickname,ip_addr,or_port,dir_port,flags,published,version")
