@@ -98,7 +98,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 
 	err := flags.Parse(arguments)
 	if err != nil {
-		log.Fatal("Aborting because couldn't parse arguments: %s\n", err)
+		log.Fatalf("Aborting because couldn't parse arguments: %s\n", err)
 	}
 
 	return params
