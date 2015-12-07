@@ -6,6 +6,8 @@ import (
 
 	tor "git.torproject.org/user/phw/zoossh.git"
 	levenshtein "github.com/arbovm/levenshtein"
+	cluster "github.com/NullHypothesis/mlgo/cluster"
+	statistics "github.com/mcgrew/gostats"
 )
 
 // Distance quantifies the distance between the two given "Tor objects" (e.g.,
@@ -20,6 +22,17 @@ func Levenshtein(obj1, obj2 tor.Object) float32 {
 
 	distance, _ := LevenshteinVerbose(obj1, obj2)
 	return distance
+}
+
+// PearsonWrapper is a wrapper around PearsonCorrelation.
+func PearsonWrapper(a, b cluster.Vector) float64 {
+	return 1 - PearsonCorrelation(a, b)
+}
+
+// PearsonCorrelation determines the Pearson correlation coefficient.
+func PearsonCorrelation(a, b []float64) float64 {
+
+	return statistics.PearsonCorrelation(a, b)
 }
 
 // LevenshteinVerbose determines the Levenshtein distance, a string metric,

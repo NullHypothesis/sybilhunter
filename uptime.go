@@ -10,17 +10,17 @@ import (
 	"log"
 	"math"
 	"os"
-	"sort"
 	"sync"
 	"time"
 
 	tor "git.torproject.org/user/phw/zoossh.git"
+	cluster "github.com/NullHypothesis/mlgo/cluster"
 )
 
 const (
 	tolerance   = 3
 	blockLength = 5
-	maxDistance = 0.0002
+	maxDistance = 0.0001
 )
 
 // numBits maps an 8-bit integer to the numbers of its bits.
@@ -134,33 +134,23 @@ type OrderedUptimes struct {
 	Sequences    []OnlineSequence
 }
 
-// Len implements the sort interface.
-func (ou OrderedUptimes) Len() int {
+// toFloatSequence converts the given online sequence to a float sequence
+// consisting of 1s and 0s.
+func toFloatSequence(seq OnlineSequence) []float64 {
 
-	return len(ou.Fingerprints)
-}
+	fseq := make([]float64, len(seq)*24)
 
-// Swap implements the sort interface.
-func (ou OrderedUptimes) Swap(i, j int) {
-
-	ou.Sequences[i], ou.Sequences[j] = ou.Sequences[j], ou.Sequences[i]
-	ou.Fingerprints[i], ou.Fingerprints[j] = ou.Fingerprints[j], ou.Fingerprints[i]
-}
-
-// Less implements the sort interface.
-func (ou OrderedUptimes) Less(i, j int) bool {
-
-	total1 := ou.Sequences[i].TotalUptime()
-	total2 := ou.Sequences[j].TotalUptime()
-
-	diff := total1 - total2
-	if (diff > -tolerance) && (diff < tolerance) {
-		median1 := ou.Sequences[i].Median()
-		median2 := ou.Sequences[j].Median()
-		return median1 < median2
-	} else {
-		return total1 < total2
+	for i, elem := range seq {
+		for hour := 0; hour < 24; hour++ {
+			if elem.IsOnline(uint32(hour)) {
+				fseq[i*24+hour] = float64(1)
+			} else {
+				fseq[i*24+hour] = float64(0)
+			}
+		}
 	}
+
+	return fseq
 }
 
 // Uptimes maps relay fingerprints to their online sequence.
@@ -209,25 +199,43 @@ func UptimeDistance(seq1, seq2 OnlineSequence) (float32, error) {
 	return distance / float32(len(seq1)*24), nil
 }
 
-// SortUptimes sorts uptime sequences, so uptimes that are visually similar are
-// close to each other.
-func SortUptimes(uptimes *Uptimes) *OrderedUptimes {
+// Cluster implements single-linkage clustering using Pearson's correlation
+// coefficient as distance function.  The function returns ordered uptimes,
+// sorted by the minimum correlation between two subsequent uptime sequences.
+func Cluster(uptimes *Uptimes) *OrderedUptimes {
 
-	start := time.Now()
+	log.Printf("Clustering uptime sequences to group similar sequences.")
 
 	ordered := &OrderedUptimes{
 		Fingerprints: make([]tor.Fingerprint, 0),
 		Sequences:    make([]OnlineSequence, 0),
 	}
 
-	for fpr, seq := range uptimes.ForFingerprint {
-		ordered.Fingerprints = append(ordered.Fingerprints, fpr)
-		ordered.Sequences = append(ordered.Sequences, seq)
+	// Turn uptime sequences into matrix because it's expected by the
+	// clustering algorithm.
+	idxToFpr := map[int]tor.Fingerprint{}
+	matrix := cluster.Matrix{}
+	i := 0
+	for fingerprint, sequence := range uptimes.ForFingerprint {
+		matrix = append(matrix, toFloatSequence(sequence))
+		idxToFpr[i] = fingerprint
+		i++
 	}
 
-	sort.Sort(ordered)
+	start := time.Now()
+	log.Println("Populating distance matrix.")
+	distances := cluster.NewDistances(matrix, PearsonWrapper)
+	log.Printf("Created distance matrix after %s.", time.Since(start))
 
-	log.Printf("Done sorting list after %s.\n", time.Since(start))
+	obj := cluster.NewHClustersSingle(matrix, PearsonWrapper, distances)
+	linkages := obj.Hierarchize()
+
+	// Turn clustered data structure back into our ordered uptimes.
+	for _, linkage := range linkages {
+		fingerprint := idxToFpr[linkage.First]
+		ordered.Fingerprints = append(ordered.Fingerprints, fingerprint)
+		ordered.Sequences = append(ordered.Sequences, uptimes.ForFingerprint[fingerprint])
+	}
 
 	return ordered
 }
@@ -269,12 +277,12 @@ func GetHighlights(uptimes *OrderedUptimes) *Highlights {
 	return &highlight
 }
 
-// PruneUptimes gets rid of columns that are of little interest, i.e., relays
-// that are always online.
+// PruneUptimes discards relays that have 100% uptime because these relays
+// aren't interesting to us.
 func PruneUptimes(uptimes *Uptimes, totalConsensuses int) {
 
-	var alwaysOnline, prevRelays int
-	prevRelays = len(uptimes.ForFingerprint)
+	var alwaysOnline, oldAmount int
+	oldAmount = len(uptimes.ForFingerprint)
 
 	for fpr, seq := range uptimes.ForFingerprint {
 		if seq.TotalUptime() == totalConsensuses {
@@ -283,7 +291,8 @@ func PruneUptimes(uptimes *Uptimes, totalConsensuses int) {
 		}
 	}
 
-	log.Printf("Pruned %d (out of %d) relays that were always online.\n", alwaysOnline, prevRelays)
+	log.Printf("Discarded %d out of %d relays because they had 100%% uptime, %d remaining.\n",
+		alwaysOnline, oldAmount, oldAmount-alwaysOnline)
 }
 
 // AnalyseUptimes analyses the uptime pattern of Tor relays and generates an
@@ -329,15 +338,16 @@ func AnalyseUptimes(channel chan tor.ObjectSet, params *CmdLineParams, group *sy
 		log.Fatalln("No consensuses to process.  Exiting.")
 	}
 
-	log.Printf("Processed %d consensuses.", totalConsensuses)
+	log.Printf("Processed %d consensuses, %d unique fingerprints.",
+		totalConsensuses, len(uptimes.ForFingerprint))
 
 	PruneUptimes(&uptimes, totalConsensuses)
 
-	sortedUptimes := SortUptimes(&uptimes)
+	sortedUptimes := Cluster(&uptimes)
 	GenImage(sortedUptimes, GetHighlights(sortedUptimes), params.InputData, totalConsensuses)
 }
 
-// GenImage generates an images out of the generated uptime pattern.  Columns
+// GenImage generates an images out of the generated uptime patterns.  Columns
 // that are suspiciously similar are highlighted.
 func GenImage(uptimes *OrderedUptimes, highlight *Highlights, fileName string, hours int) {
 
@@ -350,7 +360,7 @@ func GenImage(uptimes *OrderedUptimes, highlight *Highlights, fileName string, h
 	online := color.RGBA{0, 0, 0, 255}
 	important := color.RGBA{255, 0, 0, 255}
 
-	log.Printf("Generating %dx%d uptime image.\n", x, y)
+	log.Printf("Generating %dx%d pixel uptime visualisation.\n", x, y)
 
 	j := 0
 	var hour uint32
