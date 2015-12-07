@@ -50,6 +50,8 @@ type CmdLineParams struct {
 	OutputDir      string
 	StartDate      time.Time
 	EndDate        time.Time
+	StartDateStr   string
+	EndDateStr     string
 	ReferenceRelay string
 
 	// Callbacks holds a slice of analysis functions that are called for parsed
@@ -91,8 +93,8 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 	flags.StringVar(&params.InputData, "input", params.InputData, "File or directory to analyse.  It must contain network statuses or relay descriptors.")
 	flags.StringVar(&params.OutputDir, "output", params.OutputDir, "Directory where analysis results are written to.")
 	flags.StringVar(&params.ReferenceRelay, "referencerelay", params.ReferenceRelay, "Relay that's used as reference for nearest neighbour search.")
-	startString := flag.String("startdate", "", "Start date for analyzed data in format YYYY-MM-DD.")
-	endString := flag.String("enddate", "", "End date for analyzed data in format YYYY-MM-DD.")
+	flags.StringVar(&params.StartDateStr, "startdate", params.StartDateStr, "Start date for analyzed data in format YYYY-MM-DD.")
+	flags.StringVar(&params.EndDateStr, "enddate", params.EndDateStr, "End date for analyzed data in format YYYY-MM-DD.")
 
 	err := flags.Parse(arguments)
 	if err != nil {
@@ -148,6 +150,23 @@ func ParseConfig() *CmdLineParams {
 	return ParseFlagSet(arguments, nil)
 }
 
+// setNonPrimitiveParams turns primitive data types (e.g., the string date
+// variables) into their appropriate data type (e.g., time.Time for the date
+// variables).  This function is just a workaround to deal with the flag
+// module's limitations.
+func setNonPrimitiveParams(params *CmdLineParams) {
+
+	if params.StartDateStr != "" {
+		params.StartDate = parseDate(params.StartDateStr)
+	}
+
+	if params.EndDateStr != "" {
+		params.EndDate = parseDate(params.EndDateStr)
+	} else {
+		params.EndDate = time.Now()
+	}
+}
+
 func main() {
 
 	var threshold float64
@@ -159,30 +178,13 @@ func main() {
 
 	// Let command line arguments overwrite arguments in config file.
 	params = ParseFlagSet(os.Args[1:], params)
+	setNonPrimitiveParams(params)
 
 	if params.ShowVersion {
 		_, execName := path.Split(os.Args[0])
 		fmt.Printf("%s v%s\n", execName, version)
 		os.Exit(0)
 	}
-
-	var startDate, endDate time.Time
-	if *startString == "" {
-		startDate = time.Date(1970, time.January, 1, 00, 0, 0, 0, time.UTC)
-	} else {
-		startDate = parseDate(*startString)
-	}
-
-	if *endString == "" {
-		endDate = time.Now()
-	} else {
-		endDate = parseDate(*endString)
-	}
-
-	// Store and pass command line arguments to analysis methods.
-	params := CmdLineParams{threshold, *neighbours, *visualise, *cumulative,
-		*nofamily, *data, *input, outputDir, startDate, endDate,
-		tor.Fingerprint(*referenceRelay), []AnalysisCallback{}}
 
 	if params.ArchiveData == "" {
 		log.Fatalln("No file or directory given.  Please use the -data switch.")
