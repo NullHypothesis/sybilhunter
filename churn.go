@@ -11,10 +11,6 @@ import (
 	tor "git.torproject.org/user/phw/zoossh.git"
 )
 
-const (
-	movingAvgWinSize = 24
-)
-
 // Churn represents a churn value.
 type Churn float64
 
@@ -29,7 +25,7 @@ type MovingAverage struct {
 // NewMovingAverage allocates and returns a new moving average struct.
 func NewMovingAverage(windowSize int) *MovingAverage {
 
-	return &MovingAverage{WindowIndex: 0, WindowSize: movingAvgWinSize, Window: make([]Churn, movingAvgWinSize)}
+	return &MovingAverage{WindowIndex: 0, WindowSize: windowSize, Window: make([]Churn, windowSize)}
 }
 
 // CalcAvg determines and returns the mean of the moving average window.
@@ -108,8 +104,8 @@ func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync
 	log.Printf("Threshold for churn analysis is %.5f.\n", params.Threshold)
 	fmt.Println("date,newchurn,gonechurn,avgnewchurn,avggonechurn")
 
-	movingAvgNew := NewMovingAverage(movingAvgWinSize)
-	movingAvgGone := NewMovingAverage(movingAvgWinSize)
+	movingAvgNew := NewMovingAverage(params.WindowSize)
+	movingAvgGone := NewMovingAverage(params.WindowSize)
 
 	// Every loop iteration processes one consensus.  We compare consensus t
 	// with consensus t - 1.
