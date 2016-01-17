@@ -3,7 +3,6 @@
 package main
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
@@ -18,9 +17,7 @@ import (
 )
 
 const (
-	tolerance   = 3
 	blockLength = 5
-	maxDistance = 0.0001
 )
 
 // numBits maps an 8-bit integer to the numbers of its bits.
@@ -169,34 +166,17 @@ func (up *Uptimes) AddDay() {
 	}
 }
 
-// UptimeDistance determines the distance between two online sequences.
-func UptimeDistance(seq1, seq2 OnlineSequence) (float32, error) {
-
-	var distance, boost float32
-	var hour uint32
-
-	if len(seq1) != len(seq2) {
-		return 0, fmt.Errorf("Both sequences must have same length.\n")
-	}
+// IsSeqEqual returns true if the two given sequences are identical, and false
+// otherwise.
+func IsSeqEqual(seq1, seq2 OnlineSequence) bool {
 
 	for day, _ := range seq1 {
-		for hour = 0; hour < 24; hour++ {
-			status1 := seq1[day].IsOnline(hour)
-			status2 := seq2[day].IsOnline(hour)
-
-			// Relays don't have same status: increase distance and boost.
-			if status1 != status2 {
-				if boost < 1 {
-					boost += 0.1
-				}
-				distance += boost
-			} else {
-				boost = 0
-			}
+		if seq1[day] != seq2[day] {
+			return false
 		}
 	}
 
-	return distance / float32(len(seq1)*24), nil
+	return true
 }
 
 // Cluster implements single-linkage clustering using Pearson's correlation
@@ -247,20 +227,12 @@ func Cluster(uptimes *Uptimes) *OrderedUptimes {
 func GetHighlights(uptimes *OrderedUptimes) *Highlights {
 
 	highlight := Highlights{}
-	runlength := 0
-	hours := len(uptimes.Sequences[0]) * 24
 	cluster := 0
+	runlength := 0
 
-	// Determine distance between subsequent relay columns.
 	for i := 0; i < len(uptimes.Fingerprints)-1; i++ {
 
-		timeOnline := uptimes.Sequences[i].TotalUptime()
-		if timeOnline < 5 || (hours-timeOnline) < 5 {
-			continue
-		}
-
-		distance, _ := UptimeDistance(uptimes.Sequences[i], uptimes.Sequences[i+1])
-		if distance < maxDistance {
+		if equal := IsSeqEqual(uptimes.Sequences[i], uptimes.Sequences[i+1]); equal {
 			runlength++
 		} else {
 			if runlength >= blockLength {
