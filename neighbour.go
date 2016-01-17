@@ -24,7 +24,7 @@ func QuadraticComparison(objects tor.ObjectSet, distFunc Distance, threshold flo
 	fprs := make([]tor.Fingerprint, size)
 
 	i := 0
-	for obj := range objects.Iterate() {
+	for obj := range objects.Iterate(nil) {
 		fprs[i] = obj.GetFingerprint()
 		i++
 	}
@@ -68,7 +68,7 @@ func VantagePointTreeSearch(objects tor.ObjectSet, params *CmdLineParams) (Finge
 	// levenshtein package expects.
 	objSlice := make([]interface{}, objects.Length())
 	i := 0
-	for obj := range objects.Iterate() {
+	for obj := range objects.Iterate(params.Filter) {
 		objSlice[i] = interface{}(obj)
 		i++
 	}

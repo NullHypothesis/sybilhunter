@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/user"
 	"path"
@@ -55,6 +56,11 @@ type CmdLineParams struct {
 	EndDateStr     string
 	ReferenceRelay string
 
+	Filter         *tor.ObjectFilter
+	FilterFpr      string
+	FilterAddr     string
+	FilterNickname string
+
 	// Callbacks holds a slice of analysis functions that are called for parsed
 	// data objects.
 	Callbacks []AnalysisCallback
@@ -72,6 +78,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 		params = new(CmdLineParams)
 		params.BwFraction = -1
 		params.Neighbours = -1
+		params.Filter = tor.NewObjectFilter()
 	}
 
 	flags := flag.NewFlagSet(toolName, flag.ExitOnError)
@@ -97,6 +104,9 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 	flags.StringVar(&params.ReferenceRelay, "referencerelay", params.ReferenceRelay, "Relay that's used as reference for nearest neighbour search.")
 	flags.StringVar(&params.StartDateStr, "startdate", params.StartDateStr, "Start date for analyzed data in format YYYY-MM-DD.")
 	flags.StringVar(&params.EndDateStr, "enddate", params.EndDateStr, "End date for analyzed data in format YYYY-MM-DD.")
+	flags.StringVar(&params.FilterFpr, "filter-fpr", params.FilterFpr, "Filter router statuses and descriptors by fingerprint.  Use ',' as delimiter when multiple fingerprints are given.")
+	flags.StringVar(&params.FilterAddr, "filter-addr", params.FilterAddr, "Filter router statuses and descriptors by IP address.  Use ',' as delimiter when multiple addresses are given.")
+	flags.StringVar(&params.FilterNickname, "filter-nickname", params.FilterNickname, "Filter router statuses and descriptors by nickname.  Use ',' as delimiter when multiple nicknames are given.")
 
 	err := flags.Parse(arguments)
 	if err != nil {
@@ -167,6 +177,29 @@ func setNonPrimitiveParams(params *CmdLineParams) {
 	} else {
 		params.EndDate = time.Now()
 	}
+
+	if params.FilterFpr != "" {
+		fprs := strings.Split(params.FilterFpr, ",")
+		for _, fpr := range fprs {
+			params.Filter.AddFingerprint(tor.Fingerprint(fpr))
+		}
+	}
+
+	if params.FilterAddr != "" {
+		addrs := strings.Split(params.FilterAddr, ",")
+		for _, addr := range addrs {
+			params.Filter.AddIPAddr(net.IP(addr))
+		}
+	}
+
+	if params.FilterNickname != "" {
+		nicks := strings.Split(params.FilterNickname, ",")
+		for _, nick := range nicks {
+			params.Filter.AddNickname(nick)
+		}
+	}
+
+	log.Printf("Object filter is empty: %t", params.Filter.IsEmpty())
 }
 
 func main() {

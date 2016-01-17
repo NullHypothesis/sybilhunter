@@ -41,7 +41,7 @@ func PrettyPrint(channel chan tor.ObjectSet, params *CmdLineParams, group *sync.
 
 	counter := 0
 	for objects := range channel {
-		for object := range objects.Iterate() {
+		for object := range objects.Iterate(params.Filter) {
 			counter += 1
 
 			switch obj := object.(type) {

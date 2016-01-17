@@ -75,7 +75,7 @@ func PrintSome(channel chan tor.ObjectSet, params *CmdLineParams, group *sync.Wa
 	counter := 0
 
 	for objects := range channel {
-		for object := range objects.Iterate() {
+		for object := range objects.Iterate(params.Filter) {
 			switch obj := object.(type) {
 			case *tor.RouterStatus:
 				if _, exists := fprset[object.GetFingerprint()]; exists == true {

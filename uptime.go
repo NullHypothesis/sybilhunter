@@ -320,7 +320,7 @@ func AnalyseUptimes(channel chan tor.ObjectSet, params *CmdLineParams, group *sy
 		}
 
 		// Iterate over all relays in the consensus.
-		for object := range objects.Iterate() {
+		for object := range objects.Iterate(params.Filter) {
 
 			fpr := object.GetFingerprint()
 			daySeq, exists := uptimes.ForFingerprint[fpr]
