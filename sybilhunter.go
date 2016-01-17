@@ -21,7 +21,7 @@ import (
 
 const (
 	toolName   = "sybilhunter"
-	version    = "2015.01.a"
+	version    = "2016.01.a"
 	timeLayout = "2006-01-02_15:04:05"
 	configFile = ".sybilhunterrc"
 )
