@@ -39,6 +39,18 @@ a set of consensus documents:
 
     $ sybilhunter -data /path/to/consensuses/ -fingerprints
 
+Sybilhunter is also able to create uptime images, visualising the uptime of
+relays over time.  In such an image, every column is a relay and every row is a
+consensus.  Each pixel is either black (relay was offline) or white (relay was
+online).  Red blocks are adjacent relays with identical uptime.  You can create
+an uptime image by running:
+
+    $ sybilhunter -data /path/to/consensuses/ -uptime
+
+Sybilhunter then writes an image like the following to disk:
+
+![uptime image](https://nullhypothesis.github.com/uptimes-thumb.jpg)
+
 You can also put command line arguments into the configuration file
 `~/.sybilhunterrc`.  The format is just like command line arguments, one per
 line.  For example:
