@@ -55,6 +55,7 @@ type CmdLineParams struct {
 	StartDateStr   string
 	EndDateStr     string
 	ReferenceRelay string
+	LogFile        string
 
 	Filter         *tor.ObjectFilter
 	FilterFpr      string
@@ -107,6 +108,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 	flags.StringVar(&params.FilterFpr, "filter-fpr", params.FilterFpr, "Filter router statuses and descriptors by fingerprint.  Use ',' as delimiter when multiple fingerprints are given.")
 	flags.StringVar(&params.FilterAddr, "filter-addr", params.FilterAddr, "Filter router statuses and descriptors by IP address.  Use ',' as delimiter when multiple addresses are given.")
 	flags.StringVar(&params.FilterNickname, "filter-nickname", params.FilterNickname, "Filter router statuses and descriptors by nickname.  Use ',' as delimiter when multiple nicknames are given.")
+	flags.StringVar(&params.LogFile, "logfile", params.LogFile, "Log file to write log messages to.")
 
 	err := flags.Parse(arguments)
 	if err != nil {
@@ -219,6 +221,17 @@ func main() {
 		_, execName := path.Split(os.Args[0])
 		fmt.Printf("%s v%s\n", execName, version)
 		os.Exit(0)
+	}
+
+	if params.LogFile != "" {
+		fd, err := os.OpenFile(params.LogFile, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			log.Fatal(err)
+		}
+		defer fd.Close()
+
+		log.SetOutput(fd)
+		log.Printf("Using log file %q.\n", params.LogFile)
 	}
 
 	if params.ArchiveData == "" {
