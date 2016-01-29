@@ -177,6 +177,11 @@ func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync
 
 	var newConsensus, prevConsensus *tor.Consensus
 
+	if params.WindowSize <= 0 {
+		log.Printf("Window size set to %d, but cannot be smaller than 1.  Setting it to 1.", params.WindowSize)
+		params.WindowSize = 1
+	}
+
 	log.Printf("Threshold for churn analysis is %.5f.\n", params.Threshold)
 
 	// Print CSV header.

@@ -79,6 +79,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 		params = new(CmdLineParams)
 		params.BwFraction = -1
 		params.Neighbours = -1
+		params.WindowSize = 1
 		params.Filter = tor.NewObjectFilter()
 	}
 
@@ -86,7 +87,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 	flags.Float64Var(&params.Threshold, "threshold", params.Threshold, "Analysis-specific threshold.")
 	flags.Float64Var(&params.BwFraction, "bwfraction", params.BwFraction, "Print which relays amount to the given total bandwidth fraction.")
 	flags.IntVar(&params.Neighbours, "neighbours", params.Neighbours, "Find n nearest neighbours.")
-	flags.IntVar(&params.WindowSize, "windowsize", 24, "Window size for moving average (default is 24).")
+	flags.IntVar(&params.WindowSize, "windowsize", params.WindowSize, "Window size for moving average (default is 1).")
 	flags.BoolVar(&params.Uptime, "uptime", params.Uptime, "Create relay uptime visualisation.  Use -input for output file name.")
 	flags.BoolVar(&params.Contrib, "contrib", params.Contrib, "Determine the bandwidth contribution of relays in the given IP address blocks.")
 	flags.BoolVar(&params.Churn, "churn", params.Churn, "Determine churn rate of given set of consensuses.  Requires -threshold parameter.")
