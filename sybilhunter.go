@@ -343,7 +343,6 @@ func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet, params *C
 			return nil
 		}
 
-		log.Printf("Trying to parse file \"%s\".", path)
 		objects, err := tor.ParseUnknownFile(path)
 		if err != nil {
 			log.Println(err)
