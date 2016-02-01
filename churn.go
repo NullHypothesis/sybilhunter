@@ -18,7 +18,19 @@ const (
 )
 
 // RelayFlags holds the relay flags that will be analysed.
-var RelayFlags = []string{"Guard", "Exit", "HSDir", "Valid"}
+var RelayFlags = []string{
+	"Authority",
+	"BadExit",
+	"Exit",
+	"Fast",
+	"Guard",
+	"HSDir",
+	"Named",
+	"Running",
+	"Stable",
+	"Unnamed",
+	"V2Dir",
+	"Valid"}
 
 // Churn holds two churn values, for relays that went online and relays that
 // went offline.
