@@ -10,6 +10,36 @@ import (
 	statistics "github.com/mcgrew/gostats"
 )
 
+// RelayDistances contains a slice for relays and their corresponding distance
+// to another relay.
+type RelayDistances struct {
+	Distances []float32
+	Relays    []*tor.RouterStatus
+}
+
+// Len implements the Sorter interface.
+func (rd RelayDistances) Len() int {
+	return len(rd.Distances)
+}
+
+// Swap implements the Sorter interface.
+func (rd RelayDistances) Swap(i, j int) {
+	rd.Distances[i], rd.Distances[j] = rd.Distances[j], rd.Distances[i]
+	rd.Relays[i], rd.Relays[j] = rd.Relays[j], rd.Relays[i]
+}
+
+// Less implements the Sorter interface.
+func (rd RelayDistances) Less(i, j int) bool {
+	return rd.Distances[i] < rd.Distances[j]
+}
+
+// Add adds a new relay with its corresponding distance to the struct.
+func (rd *RelayDistances) Add(relay *tor.RouterStatus, dist float32) {
+
+	rd.Distances = append(rd.Distances, dist)
+	rd.Relays = append(rd.Relays, relay)
+}
+
 // Distance quantifies the distance between the two given "Tor objects" (e.g.,
 // router statuses or descriptors) as 32-bit float.
 type Distance func(obj1, obj2 tor.Object) float32

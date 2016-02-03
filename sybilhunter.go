@@ -56,6 +56,7 @@ type CmdLineParams struct {
 	EndDateStr     string
 	ReferenceRelay string
 	LogFile        string
+	SearchAlg      string
 
 	Filter         *tor.ObjectFilter
 	FilterFpr      string
@@ -80,6 +81,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 		params.BwFraction = -1
 		params.Neighbours = -1
 		params.WindowSize = 1
+		params.SearchAlg = "linear"
 		params.Filter = tor.NewObjectFilter()
 	}
 
@@ -110,6 +112,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 	flags.StringVar(&params.FilterAddr, "filter-addr", params.FilterAddr, "Filter router statuses and descriptors by IP address.  Use ',' as delimiter when multiple addresses are given.")
 	flags.StringVar(&params.FilterNickname, "filter-nickname", params.FilterNickname, "Filter router statuses and descriptors by nickname.  Use ',' as delimiter when multiple nicknames are given.")
 	flags.StringVar(&params.LogFile, "logfile", params.LogFile, "Log file to write log messages to.")
+	flags.StringVar(&params.SearchAlg, "search", params.SearchAlg, "Search algorithm to use.  Must be 'vptree' or 'linear'.  Default is 'linear'.")
 
 	err := flags.Parse(arguments)
 	if err != nil {

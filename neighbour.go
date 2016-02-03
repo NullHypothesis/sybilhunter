@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -46,6 +47,57 @@ func QuadraticComparison(objects tor.ObjectSet, distFunc Distance, threshold flo
 			}
 		}
 	}
+}
+
+// LinearSearch linearly searches for nearest neighbours to the given relay
+// identified by its fingerprint.  THe result is printed to stdout.
+func LinearSearch(objects tor.ObjectSet, params *CmdLineParams) (FingerprintMap, error) {
+
+	rootrelay := tor.Fingerprint(params.ReferenceRelay)
+	relayDists := RelayDistances{}
+	foundNeighbours := make(FingerprintMap)
+
+	log.Printf("Running linear search for relay %s.", rootrelay)
+
+	// Get router status and corresponding descriptor for target relay.
+	targetRelay, found := objects.GetObject(tor.SanitiseFingerprint(rootrelay))
+	if !found {
+		return nil, fmt.Errorf("Could not find relay with fingerprint %s.", rootrelay)
+	}
+	targetStatus := targetRelay.(*tor.RouterStatus)
+	targetDesc, err := tor.LoadDescriptorFromDigest(params.DescriptorDir, targetStatus.Digest, targetStatus.Publication)
+	if err != nil {
+		return nil, err
+	}
+
+	// Now determine Levenshtein distance to all relays in given object set.
+	for object := range objects.Iterate(nil) {
+		status := object.(*tor.RouterStatus)
+		if status.Fingerprint == targetStatus.Fingerprint {
+			continue
+		}
+		desc, err := tor.LoadDescriptorFromDigest(params.DescriptorDir, status.Digest, status.Publication)
+		if err != nil {
+			return nil, err
+		}
+
+		distance := Levenshtein(targetStatus, status, targetDesc, desc)
+		relayDists.Add(status, distance)
+	}
+	log.Printf("Calculated %d distances.", len(relayDists.Distances))
+
+	// Sort distances and print top n.
+	sort.Sort(relayDists)
+	for i := 0; i < params.Neighbours; i++ {
+		foundNeighbours[relayDists.Relays[i].Fingerprint] = true
+		fmt.Printf("Dist(%s, %s) = %.0f, <https://atlas.torproject.org/#details/%s>\n\n",
+			targetRelay.GetFingerprint()[:8],
+			relayDists.Relays[i].GetFingerprint()[:8],
+			relayDists.Distances[i],
+			relayDists.Relays[i].GetFingerprint())
+	}
+
+	return foundNeighbours, nil
 }
 
 // VantagePointTreeSearch builds a vantage point tree out of the given objects.
@@ -123,6 +175,16 @@ func FindNearestNeighbours(channel chan tor.ObjectSet, params *CmdLineParams, gr
 	defer group.Done()
 
 	for objects := range channel {
-		VantagePointTreeSearch(objects, params)
+		if params.SearchAlg == "linear" {
+			if _, err := LinearSearch(objects, params); err != nil {
+				log.Fatal(err)
+			}
+		} else if params.SearchAlg == "vptree" {
+			if _, err := VantagePointTreeSearch(objects, params); err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			log.Fatalf("Invalid search algorithm %q.  Must be \"linear\" or \"vptree\".", params.SearchAlg)
+		}
 	}
 }
