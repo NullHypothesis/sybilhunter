@@ -194,7 +194,7 @@ func setNonPrimitiveParams(params *CmdLineParams) {
 	if params.FilterAddr != "" {
 		addrs := strings.Split(params.FilterAddr, ",")
 		for _, addr := range addrs {
-			params.Filter.AddIPAddr(net.IP(addr))
+			params.Filter.AddIPAddr(net.ParseIP(addr))
 		}
 	}
 
