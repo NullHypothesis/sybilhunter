@@ -21,7 +21,7 @@ const (
 )
 
 // numBits maps an 8-bit integer to the numbers of its bits.
-var numBits = map[int]int{
+var numBits = map[uint]int{
 	0: 0, 1: 1, 2: 1, 3: 2, 4: 1, 5: 2, 6: 2, 7: 3, 8: 1, 9: 2,
 	10: 2, 11: 3, 12: 2, 13: 3, 14: 3, 15: 4, 16: 1, 17: 2, 18: 2, 19: 3,
 	20: 2, 21: 3, 22: 3, 23: 4, 24: 2, 25: 3, 26: 3, 27: 4, 28: 3, 29: 4,
@@ -84,10 +84,10 @@ func (seq *OnlineSequence) TotalUptime() int {
 
 	total := 0
 	for _, day := range *seq {
-		byte1 := numBits[(int(day)&0x000000ff)>>0]
-		byte2 := numBits[(int(day)&0x0000ff00)>>8]
-		byte3 := numBits[(int(day)&0x00ff0000)>>16]
-		byte4 := numBits[(int(day)&0xff000000)>>24]
+		byte1 := numBits[(uint(day)&uint(0x000000ff))>>0]
+		byte2 := numBits[(uint(day)&uint(0x0000ff00))>>8]
+		byte3 := numBits[(uint(day)&uint(0x00ff0000))>>16]
+		byte4 := numBits[(uint(day)&uint(0xff000000))>>24]
 
 		total += (byte1 + byte2 + byte3 + byte4)
 	}
