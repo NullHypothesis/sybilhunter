@@ -21,10 +21,12 @@ import (
 )
 
 const (
-	toolName   = "sybilhunter"
-	version    = "2016.01.a"
-	timeLayout = "2006-01-02_15:04:05"
-	configFile = ".sybilhunterrc"
+	toolName      = "sybilhunter"
+	version       = "2016.01.a"
+	timeLayout    = "2006-01-02_15:04:05"
+	configFile    = ".sybilhunterrc"
+	longCSVFormat = "long"
+	wideCSVFormat = "wide"
 )
 
 // Files for manual analysis are written to this directory.
@@ -58,6 +60,7 @@ type CmdLineParams struct {
 	ReferenceRelay string
 	LogFile        string
 	SearchAlg      string
+	CSVFormat      string
 
 	Filter         *tor.ObjectFilter
 	FilterFpr      string
@@ -83,6 +86,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 		params.Neighbours = -1
 		params.WindowSize = 1
 		params.SearchAlg = "linear"
+		params.CSVFormat = longCSVFormat
 		params.Filter = tor.NewObjectFilter()
 	}
 
@@ -114,6 +118,7 @@ func ParseFlagSet(arguments []string, params *CmdLineParams) *CmdLineParams {
 	flags.StringVar(&params.FilterNickname, "filter-nickname", params.FilterNickname, "Filter router statuses and descriptors by nickname.  Use ',' as delimiter when multiple nicknames are given.")
 	flags.StringVar(&params.LogFile, "logfile", params.LogFile, "Log file to write log messages to.")
 	flags.StringVar(&params.SearchAlg, "search", params.SearchAlg, "Search algorithm to use.  Must be 'vptree' or 'linear'.  Default is 'linear'.")
+	flags.StringVar(&params.CSVFormat, "csvformat", params.CSVFormat, "Must be either 'long' or 'wide'.  Default is 'long'.")
 
 	err := flags.Parse(arguments)
 	if err != nil {
@@ -276,6 +281,7 @@ func main() {
 	}
 
 	if params.Churn {
+		log.Printf("Using '%s' CSV format.  Use -csvformat if you don't like that.", params.CSVFormat)
 		params.Callbacks = append(params.Callbacks, AnalyseChurn)
 	}
 
@@ -299,6 +305,10 @@ func main() {
 			log.Fatalf("Bandwidth fraction must be in [0,1], but %.3f was given.\n", params.BwFraction)
 		}
 		params.Callbacks = append(params.Callbacks, FindFastRelays)
+	}
+
+	if params.CSVFormat != longCSVFormat && params.CSVFormat != wideCSVFormat {
+		log.Fatalf("Parameter 'csvformat' must be either '%s' or '%s', but is '%s'.", longCSVFormat, wideCSVFormat, params.CSVFormat)
 	}
 
 	if len(params.Callbacks) == 0 {

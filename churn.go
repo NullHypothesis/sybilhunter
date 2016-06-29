@@ -145,7 +145,7 @@ func FilterConsensusByFlag(consensus *tor.Consensus, flag string) *tor.Consensus
 // with the "Guard" flag, we get a churn value for relays that went online and a
 // churn value for relays that went offline.  A set of relays is dumped to
 // stderr once a churn value exceeds the given threshold.
-func DeterminePerFlagChurn(prevConsensus, newConsensus *tor.Consensus, movAvg PerFlagMovAvg, threshold float64) {
+func DeterminePerFlagChurn(prevConsensus, newConsensus *tor.Consensus, movAvg PerFlagMovAvg, params *CmdLineParams) {
 
 	var line string
 
@@ -162,17 +162,29 @@ func DeterminePerFlagChurn(prevConsensus, newConsensus *tor.Consensus, movAvg Pe
 			continue
 		}
 
-		if churn.Online >= threshold {
+		if churn.Online >= params.Threshold {
 			dumpChurnRelays(newFiltered.Subtract(prevFiltered), "+"+flag, newConsensus.ValidAfter)
 		}
-		if churn.Offline >= threshold {
+		if churn.Offline >= params.Threshold {
 			dumpChurnRelays(prevFiltered.Subtract(newFiltered), "-"+flag, newConsensus.ValidAfter)
 		}
 
-		if line == "" {
-			line += fmt.Sprintf("%s", newConsensus.ValidAfter.Format("2006-01-02T15:04:05Z"))
+		if params.CSVFormat == longCSVFormat {
+			fmt.Printf("%s", newConsensus.ValidAfter.Format("2006-01-02T15:04:05Z"))
+			for _, noFlag := range RelayFlags {
+				if noFlag != flag {
+					fmt.Printf(",NA")
+				} else {
+					fmt.Printf(",T")
+				}
+			}
+			fmt.Printf(",%.5f,%.5f\n", churn.Online, churn.Offline)
+		} else {
+			if line == "" {
+				line += fmt.Sprintf("%s", newConsensus.ValidAfter.Format("2006-01-02T15:04:05Z"))
+			}
+			line += fmt.Sprintf(",%.5f,%.5f", churn.Online, churn.Offline)
 		}
-		line += fmt.Sprintf(",%.5f,%.5f", churn.Online, churn.Offline)
 	}
 
 	if line != "" {
@@ -196,10 +208,17 @@ func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync
 
 	log.Printf("Threshold for churn analysis is %.5f.\n", params.Threshold)
 
-	// Print CSV header.
+	// Print CSV header, either in long or wide format.
 	fmt.Print("Date")
 	for _, flag := range RelayFlags {
-		fmt.Printf(",New%s,Gone%s", flag, flag)
+		if params.CSVFormat == longCSVFormat {
+			fmt.Printf(",%s", flag)
+		} else {
+			fmt.Printf(",New%s,Gone%s", flag, flag)
+		}
+	}
+	if params.CSVFormat == longCSVFormat {
+		fmt.Print(",NewChurn,GoneChurn")
 	}
 	fmt.Println()
 
@@ -233,7 +252,7 @@ func AnalyseChurn(channel chan tor.ObjectSet, params *CmdLineParams, group *sync
 			continue
 		}
 
-		DeterminePerFlagChurn(prevConsensus, newConsensus, movAvg, params.Threshold)
+		DeterminePerFlagChurn(prevConsensus, newConsensus, movAvg, params)
 
 		prevConsensus = newConsensus
 	}
