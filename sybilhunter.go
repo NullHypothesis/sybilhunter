@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -325,18 +326,14 @@ func fileInRange(fileName string, startDate, endDate time.Time) bool {
 	return date.After(startDate) && date.Before(endDate)
 }
 
-// GatherObjects returns a WalkFunc that gathers data objects from a file or
-// directory.  If the given object set pointer is not nil, it is used to
-// accumulate objects.  If the given channels are not nil, GatherObjects sends
-// the gathered data objects over the channels instead of accumulating them.
-func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet, params *CmdLineParams) filepath.WalkFunc {
+// GatherObjects returns a callback function that gathers data objects from a
+// file, directory, or tarball.  If the given object set pointer is not nil, it
+// is used to accumulate objects.  If the given channels are not nil,
+// GatherObjects sends the gathered data objects over the channels instead of
+// accumulating them.
+func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet, params *CmdLineParams) func(string, os.FileInfo, io.Reader) error {
 
-	return func(path string, info os.FileInfo, err error) error {
-
-		if _, err := os.Stat(path); err != nil {
-			log.Printf("File \"%s\" does not exist.\n", path)
-			return nil
-		}
+	return func(path string, info os.FileInfo, r io.Reader) error {
 
 		if info.IsDir() {
 			return nil
@@ -347,7 +344,7 @@ func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet, params *C
 			return nil
 		}
 
-		objects, err := tor.ParseUnknownFile(path)
+		objects, err := tor.ParseUnknown(r)
 		if err != nil {
 			log.Println(err)
 			return nil
@@ -373,6 +370,64 @@ func GatherObjects(objs *tor.ObjectSet, channels []chan tor.ObjectSet, params *C
 	}
 }
 
+// Walk over the entries of path, open each one, and pass it to callback.
+func walkPath(path string, callback func(string, os.FileInfo, io.Reader) error) error {
+
+	// callback expects an already opened file.
+	walkFn := func(path string, info os.FileInfo, err error) error {
+		fd, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer fd.Close()
+
+		return callback(path, info, fd)
+	}
+
+	return filepath.Walk(path, walkFn)
+}
+
+// Walk over the entries of the named tar.xz file and pass them to callback.
+//
+// Unlike filepath.Walk, this function does not visit directory entries in
+// lexicographic order, rather the order they appear in the tar file.
+func walkTarXZFile(path string, callback func(string, os.FileInfo, io.Reader) error) error {
+
+	fd, t, err := openTarXZFile(path)
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
+
+	for {
+		header, err := t.Next()
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			return err
+		}
+
+		err = callback(header.Name, header.FileInfo(), t)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Walk over the entries of the given path. The treatment depends on the given
+// path: if it ends in ".tar.xz" it is passed to walkTarXZFile; otherwise it is
+// passed to walkPath.
+func walkArchiveData(path string, callback func(string, os.FileInfo, io.Reader) error) error {
+
+	if strings.HasSuffix(path, ".tar.xz") {
+		return walkTarXZFile(path, callback)
+	} else {
+		return walkPath(path, callback)
+	}
+}
+
 // ParseFiles parses the given directory or files and passes the parsed data to
 // the given analysis functions.  ParseFiles then waits for all these functions
 // to finish processing.
@@ -393,7 +448,7 @@ func ParseFiles(params *CmdLineParams) error {
 
 	if params.Cumulative {
 		log.Printf("Processing \"%s\" cumulatively.\n", params.ArchiveData)
-		filepath.Walk(params.ArchiveData, GatherObjects(&objs, nil, params))
+		walkArchiveData(params.ArchiveData, GatherObjects(&objs, nil, params))
 
 		if objs == nil {
 			return errors.New("Gathered object set empty.  Are we parsing the right files?")
@@ -405,7 +460,7 @@ func ParseFiles(params *CmdLineParams) error {
 		}
 	} else {
 		log.Printf("Processing \"%s\" independently.\n", params.ArchiveData)
-		filepath.Walk(params.ArchiveData, GatherObjects(nil, channels, params))
+		walkArchiveData(params.ArchiveData, GatherObjects(nil, channels, params))
 	}
 
 	// Close processing channels and wait for goroutines to finish.
