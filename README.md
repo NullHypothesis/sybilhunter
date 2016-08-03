@@ -5,18 +5,23 @@
 
 Overview
 --------
-`sybilhunter` implements a number of analysis techniques to find Sybils and
-other anomalies in [archived Tor network
-data](https://collector.torproject.org).  For example, `sybilhunter` can tell
-you when an unusally high amount of relays joined or left the Tor network,
-which Tor relays changed their identity keys a lot, and which Tor relays appear
-to be very similar to each other.  Ideally, `sybilhunter` should become a Swiss
-Army knife for analysing anomalies in network consensuses and relay
-descriptors.
+Sybilhunter is a command line tool written in [Go](https://golang.org) to
+discover and analyse Sybil relays in the Tor network.  It does so by
+implementing a number of analysis techniques that take as input [archived Tor
+network data](https://collector.torproject.org).  For example, sybilhunter can
+tell you (*i*) when an unusally large amount of relays joined or left the Tor
+network, (*ii*) which Tor relays changed their identity keys a lot, and (*iii*)
+which Tor relays are configured very similar to each other.  Ideally,
+sybilhunter should become a Swiss Army knife for analysing anomalies in network
+consensuses and relay descriptors.  The theory behind sybilhunter is discussed
+in a [research paper](https://nymity.ch/sybilhunting/) that was published at the
+[USENIX Security
+2016](https://www.usenix.org/conference/usenixsecurity16/technical-sessions/presentation/winter)
+conference.
 
 Get started in 5 minutes
 ------------------------
-Assuming you have a working Go installation:
+Assuming you have a working Go installation, this is how you can get started:
 
     $ go get github.com/NullHypothesis/sybilhunter
     $ wget https://collector.torproject.org/archive/relay-descriptors/consensuses/consensuses-2015-08.tar.xz
@@ -28,7 +33,7 @@ to learn more about analysis examples.
 
 Examples
 --------
-`sybilhunter` takes as input data obtained from
+Sybilhunter takes as input data obtained from
 [CollecTor](https://collector.torproject.org).  Let's start by pretty-printing
 a file containing a network consensus or relay descriptors:
 
@@ -65,9 +70,9 @@ file.
 Alternatives
 ------------
 
-Check out [`doctor`](https://gitweb.torproject.org/doctor.git/)'s [sybil
+Check out [doctor](https://gitweb.torproject.org/doctor.git/)'s [sybil
 checker](https://gitweb.torproject.org/doctor.git/tree/sybil_checker.py)
-script, and [`hstools`](https://github.com/FiloSottile/hstools) can be useful
+script, and [hstools](https://github.com/FiloSottile/hstools) can be useful
 for finding anomalies in hidden service directories.
 
 Contact
