@@ -114,7 +114,7 @@ func BandwidthContribution(channel chan tor.ObjectSet, params *CmdLineParams, gr
 				for netname, netblocks := range netblockMap {
 					for _, netblock := range netblocks {
 						// Is the relay cloud-hosted?
-						if netblock.Contains(status.Address) {
+						if netblock.Contains(status.Address.IPv4Address) {
 							contribution[netname] += status.Bandwidth
 							cloudBw += status.Bandwidth
 							cloudCount += 1
